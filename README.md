@@ -14,6 +14,32 @@ The five morphology engines in the supplied prototype are:
 
 The grid-based simulation tracks biomass, age, water, nutrients, tissue stress, fracture, fruiting, and necrosis over accelerated years. Species can share the same rock, compete, grow old, die, and recolonize. The shader approximates macro-photography relief and tissue optics; pigmentation is deliberately fantastical.
 
+## New: MATHEMAGICAL! Color Vault
+
+The **Color Lab** tab retains Gemini's six anatomical material modes and adds **69 genuine named color palettes** from the user's existing MATHEMAGICAL! and Slimekimi projects. Source files: `magnetic_art_app/src/core/palette-catalog.js` (57 source-authored presets) and `slimekimiapp/src/lib/palettes.ts` (12 presets). Original palette stop counts are preserved: 12-stop originals remain 12-stop editable ramps.
+
+- Select by source family or search by name.
+- Random named palette; independently randomize any individual stop or all stops.
+- Shuffle, reverse or rotate the stop order; add/remove colors; edit each hexadecimal swatch.
+- Color mapping is attached to anatomical cortex/rims/cups/soredia **before** biological shading, SSS and thin-film color, so geometry and lifecycle never get flattened into a generic color filter.
+
+The **Export** tab includes:
+
+- **PNG:** exact current scene, redrawn to a selected 512–2048 square resolution.
+- **GIF:** real accelerated-growth animation, selectable 2–30 seconds at 10/15/24/30 FPS, frame-by-frame encoded, infinite playback loop. GIF is 256-color indexed; the animation is not necessarily seamless between end and start because living colonies grow forward.
+- **MP4:** high-resolution H.264/AVC video in a genuine MP4 container, selectable bitrate 8/16/30/50 Mbps. Prefers WebCodecs + `mp4-muxer` for fixed timestamp frames; falls back to a native MP4-capable browser MediaRecorder where available. If H.264 encoding is unsupported, it reports the browser limitation instead of mislabeling WebM.
+- Select **biological growth steps per frame** separately from live simulation speed. Exporting advances the scene from its current state, then resumes interactive growth. A cancel button stops long captures.
+
+Browser-only encoders `gifenc` and `mp4-muxer` are loaded on demand from public CDNs, with no backend or paid service. Browser GPU/encoder limits and iPhone memory may constrain 1536–2048px animated capture; begin with 512–1024px on a phone.
+
+## Mobile UI
+
+On phone-sized screens the macro canvas is **pinned in the top viewport**, while the editing controls **scroll separately beneath** a draggable resize handle. The compact Species / Color Lab / Life/Death / Optics/3D / Export tab bar remains accessible while editing. The transport toolbar scrolls horizontally and the original WebGL2 canvas stays visible throughout. Desktop retains the side-by-side laboratory layout.
+
+## Deployment
+
+`.github/workflows/deploy-pages.yml` copies `index.html`, `palette-library.js`, `studio-runtime.js` and `studio-layout.css` to GitHub Pages. No Vite build, server, tokens, or Netlify credits are necessary. The source is tracked separately from the original Lichen Vivarium.
+
 ## How to play
 
 1. Open the app. It starts with five colonies on weathered slate.
