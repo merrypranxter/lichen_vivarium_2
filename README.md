@@ -14,6 +14,20 @@ The five morphology engines in the supplied prototype are:
 
 The grid-based simulation tracks biomass, age, water, nutrients, tissue stress, fracture, fruiting, and necrosis over accelerated years. Species can share the same rock, compete, grow old, die, and recolonize. The shader approximates macro-photography relief and tissue optics; pigmentation is deliberately fantastical.
 
+## Motion engine — continuous biological growth
+
+The original attached prototype used a stochastic binary frontier step: when a random threshold passed, a bare grid cell jumped from biomass `0` to `0.14` in a single update. It also ran `simSpeed` ticks *per rendered frame*, so a 30 Hz phone grew at a different rate from a 60 Hz device.
+
+**Lichen Vivarium II now uses:**
+
+- **Continuous front accumulation:** the existing species-specific radial lobe geometry, hydration, nutrients, substrate affinity and curvature determine a small, bounded growth increment every biological tick. Colony ownership locks once a microscopic front starts, preventing species/color flicker at boundaries.
+- **Time-based growth:** fixed-step accumulator set to 20 biological ticks per second per growth-speed unit (e.g. 3× → about 60 ticks/s at normal 30/60 Hz). The scheduler caps work to six ticks per drawn frame to avoid freezing slow phones instead of dumping a large catch-up burst.
+- **Temporal rendering interpolation:** 256×256 GPU-bound biological RGBA fields (biomass, tissue age, fracture, necrosis) and fruiting intensity visually ease toward the authoritative simulation state. Species, polar angles and colony identifiers are never blended (that would produce anatomical artifacts).
+- **Independent motion controls:** the new **Motion** tab exposes Growth Fluidity (default 75%), Living Edge Creep (default 1.25×), Silky Growing and Raw Comparison presets. Fluidity 0 disables visual easing while preserving the continuous biological growth model.
+- **Export parity:** PNG shows the current authoritative state; GIF/MP4 feed the same live biological renderer with the exact selected frame duration for consistent optical smoothing, regardless of preview FPS.
+
+A deliberately evolving lichen colony does **not** form a mathematically seamless video loop by default: the growth is real, not reverse-played or boomeranged.
+
 ## New: MATHEMAGICAL! Color Vault
 
 The **Color Lab** tab retains Gemini's six anatomical material modes and adds **69 genuine named color palettes** from the user's existing MATHEMAGICAL! and Slimekimi projects. Source files: `magnetic_art_app/src/core/palette-catalog.js` (57 source-authored presets) and `slimekimiapp/src/lib/palettes.ts` (12 presets). Original palette stop counts are preserved: 12-stop originals remain 12-stop editable ramps.
@@ -34,7 +48,7 @@ Browser-only encoders `gifenc` and `mp4-muxer` are loaded on demand from public 
 
 ## Mobile UI
 
-On phone-sized screens the macro canvas is **pinned in the top viewport**, while the editing controls **scroll separately beneath** a draggable resize handle. The compact Species / Color Lab / Life/Death / Optics/3D / Export tab bar remains accessible while editing. The transport toolbar scrolls horizontally and the original WebGL2 canvas stays visible throughout. Desktop retains the side-by-side laboratory layout.
+On phone-sized screens the macro canvas is **pinned in the top viewport**, while the editing controls **scroll separately beneath** a draggable resize handle. The compact Species / Color Lab / Motion / Life/Death / Optics/3D / Export tab bar remains accessible while editing. The transport toolbar scrolls horizontally and the original WebGL2 canvas stays visible throughout. Desktop retains the side-by-side laboratory layout.
 
 ## Deployment
 
