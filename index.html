@@ -657,6 +657,8 @@
 
   </aside>
 
+  <!-- Studio enhancements are optional; original biological engine remains standalone. -->
+  <script src="./studio-runtime.js"></script>
   <!-- APPLICATION SCRIPT: COUPLED PDE BIOLOGICAL ENGINE + WEBGL2 MICROFACET & RAYMARCH SHADER -->
   <script>
     (function() {
@@ -1185,6 +1187,7 @@
 
         uniform sampler2D uBioTex; // R: biomass, G: normAge, B: crack, A: necrosis
         uniform sampler2D uAuxTex; // R: species, G: fruiting, B: radialAngle, A: colonyHash
+        uniform sampler2D uColorRamp; // Full fidelity original palette stops, packed as continuous RGB ramp
 
         uniform float uTime;
         uniform float uWetness;
@@ -1867,6 +1870,17 @@
             apotheciaCol = hueRotate(vec3(1.00, 0.12, 0.28), phase);
             sorediaCol   = hueRotate(vec3(0.32, 1.00, 0.92), phase);
           }
+          else if (uPaletteMode == 6) {
+            // MODE 6: The named MATHEMAGICAL palette vault. Sample distinct tissue
+            // layers from the complete original ramp *before* illumination/SSS.
+            float pigmentPhase = fract(ts.colonyHash * 0.29 + spNorm * 0.17
+                                     + bioPigmentNoise * 0.14 + uHueShift / 6.2831853);
+            marginCol    = texture(uColorRamp, vec2(fract(pigmentPhase + 0.02), 0.5)).rgb;
+            cortexCol    = texture(uColorRamp, vec2(fract(pigmentPhase + 0.20), 0.5)).rgb;
+            matureCol    = texture(uColorRamp, vec2(fract(pigmentPhase + 0.42), 0.5)).rgb;
+            apotheciaCol = texture(uColorRamp, vec2(fract(pigmentPhase + 0.68), 0.5)).rgb;
+            sorediaCol   = texture(uColorRamp, vec2(fract(pigmentPhase + 0.87), 0.5)).rgb;
+          }
           else {
             // MODE 5: Solarized Infrared Herbarium (Kodak Aerochrome False-Color)
             float phase = spNorm * 2.4 + uHueShift + bioPigmentNoise * 0.40;
@@ -2053,6 +2067,7 @@
       const uniforms = {
         uBioTex: gl.getUniformLocation(program, 'uBioTex'),
         uAuxTex: gl.getUniformLocation(program, 'uAuxTex'),
+        uColorRamp: gl.getUniformLocation(program, 'uColorRamp'),
         uTime: gl.getUniformLocation(program, 'uTime'),
         uWetness: gl.getUniformLocation(program, 'uWetness'),
         uPaletteMode: gl.getUniformLocation(program, 'uPaletteMode'),
@@ -2073,6 +2088,7 @@
 
       gl.uniform1i(uniforms.uBioTex, 0);
       gl.uniform1i(uniforms.uAuxTex, 1);
+      if (uniforms.uColorRamp !== null) gl.uniform1i(uniforms.uColorRamp, 2);
 
       // Resize Canvas to match DPI
       function resizeCanvas() {
@@ -2436,6 +2452,7 @@
 
       // High-Resolution PNG Snapshot Export
       document.getElementById('exportPngBtn').addEventListener('click', () => {
+        if (window.lichenStudioExportPNG) return window.lichenStudioExportPNG();
         const link = document.createElement('a');
         link.download = `psychedelic-lichen-yr-${Math.round(simYears)}.png`;
         link.href = canvas.toDataURL('image/png');
@@ -2452,11 +2469,20 @@
       runFastForwardSteps(110);
       resizeCanvas();
 
-      function renderLoop(nowMs) {
-        resizeCanvas();
+      let lichenExportLock = false;
+      let lichenExportSteps = params.simSpeed;
+      function renderLoop(nowMs, exportPass = false, advance = true) {
+        // Pause the realtime loop while deterministic export frames are drawn.
+        // Keep requesting RAFs so playback automatically resumes afterward.
+        if (lichenExportLock && !exportPass) {
+          requestAnimationFrame(renderLoop);
+          return;
+        }
+        if (!exportPass) resizeCanvas();
 
-        if (isRunning) {
-          for (let s = 0; s < params.simSpeed; s++) {
+        if ((exportPass && advance) || (!exportPass && isRunning)) {
+          const steps = exportPass ? lichenExportSteps : params.simSpeed;
+          for (let s = 0; s < steps; s++) {
             stepBiologicalSimulation();
           }
           syncTextures();
@@ -2495,7 +2521,22 @@
         gl.uniform2f(uniforms.uPan, params.panX, params.panY);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        requestAnimationFrame(renderLoop);
+        if (!exportPass) requestAnimationFrame(renderLoop);
+      }
+
+      // Hand the enhancer access to the existing real biological and optical pipeline.
+      // It may not bypass the renderer or reset the user's living ecosystem.
+      if (typeof window.setupLichenStudio === 'function') {
+        window.setupLichenStudio({
+          gl, canvas, params, uniforms,
+          getYears: () => simYears,
+          exportFrame: (t, advance) => renderLoop(t, true, advance),
+          setExportLock: (locked, growthSteps) => {
+            lichenExportLock = locked;
+            if (Number.isFinite(growthSteps)) lichenExportSteps = Math.max(0, Math.min(12, growthSteps));
+          },
+          restoreCanvas: () => { resizeCanvas(); }
+        });
       }
 
       requestAnimationFrame(renderLoop);
