@@ -259,7 +259,7 @@
     }
     async function draw(i,fps,advance) {
       if(cancelled)throw new DOMException('Export cancelled','AbortError');
-      api.exportFrame(1000 * i/fps,advance);
+      api.exportFrame(1000 * i/fps,advance,1000 / fps);
       if(gl.isContextLost()) throw new Error('GPU context lost during export; try a smaller resolution.');
       if(i%2===0)await nextPaint();
     }
