@@ -167,9 +167,10 @@
     </div>
 
     <!-- Navigation Tabs -->
-    <div id="tabBar" role="tablist" aria-label="Lichen studio controls" class="grid grid-cols-5 border-b border-slate-800 bg-[#090b0f] text-xs font-medium">
+    <div id="tabBar" role="tablist" aria-label="Lichen studio controls" class="grid grid-cols-6 border-b border-slate-800 bg-[#090b0f] text-xs font-medium">
       <button data-tab="tab-engines" class="tab-btn py-2.5 border-b-2 border-sky-400 text-sky-400 bg-slate-900/50">Species</button>
       <button data-tab="tab-psychedelic" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Color Lab</button>
+      <button data-tab="tab-motion" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Motion</button>
       <button data-tab="tab-lifecycle" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Life/Death</button>
       <button data-tab="tab-optics" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Optics/3D</button>
       <button data-tab="tab-export" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Export</button>
@@ -434,6 +435,40 @@
       </div>
     </div>
 
+    <!-- MOTION LAB: biological creep + time-based pacing + low-latency visual easing -->
+    <div id="tab-motion" class="tab-panel hidden p-4 space-y-4">
+      <h2 class="text-sm font-bold text-cyan-300">Living Growth Motion</h2>
+      <p class="text-xs leading-relaxed text-slate-400">
+        Lichen edges creep cell by cell with continuous biomass accumulation, while visual
+        tissue height and color ease toward each new biological state. This is actual growth —
+        not a video filter. Your individual colony shapes and lichen lifecycles stay intact.
+      </p>
+      <div class="rounded-xl border border-sky-800/50 bg-sky-950/20 p-3 space-y-4">
+        <label class="block text-xs text-slate-200" for="motionSoftnessSlider">
+          <span class="flex items-center justify-between mb-2"><span><strong>Growth Fluidity</strong> · no popping</span>
+          <output id="motionSoftnessVal" class="mono text-cyan-300">75%</output></span>
+          <input id="motionSoftnessSlider" type="range" min="0" max="1" step="0.05" value="0.75" class="w-full" />
+          <span class="block mt-1 text-[11px] text-slate-400">Higher = silkier, more gradual transitions. Zero = unsmoothed preview for comparison.</span>
+        </label>
+        <label class="block text-xs text-slate-200" for="frontCreepSlider">
+          <span class="flex items-center justify-between mb-2"><span><strong>Living Edge Creep</strong> · front advance</span>
+          <output id="frontCreepVal" class="mono text-cyan-300">1.25x</output></span>
+          <input id="frontCreepSlider" type="range" min="0.25" max="2.5" step="0.05" value="1.25" class="w-full" />
+          <span class="block mt-1 text-[11px] text-slate-400">Controls how quickly microscopic tips fill in. Changes real biomass growth, not the shader blur.</span>
+        </label>
+        <div class="grid grid-cols-2 gap-2 text-xs text-slate-300">
+          <button id="motionSilkyBtn" class="lichen-studio-button lichen-primary">🫧 Silky Growing</button>
+          <button id="motionRawBtn" class="lichen-studio-button">🔬 Raw Comparison</button>
+        </div>
+      </div>
+      <div class="rounded-lg border border-slate-800 bg-slate-950/70 p-3 text-[11px] text-slate-400">
+        <strong class="text-sky-300">Frame-rate independent:</strong> Life/Death simulation speed
+        now advances in biological ticks per second rather than per rendered screen frame.
+        Motion remains properly paced at 30 Hz or 60 Hz and during high-resolution video exports.
+        No jittering texture movement or artificial camera wobble.
+      </div>
+    </div>
+
     <!-- TAB 3: FULL GROWTH TO DEATH LIFECYCLE PARAMETERS -->
     <div id="tab-lifecycle" class="tab-panel hidden p-4 space-y-4">
       <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 leading-relaxed space-y-1">
@@ -449,7 +484,7 @@
       <div class="space-y-3">
         <div>
           <div class="flex justify-between text-xs mb-1">
-            <span class="text-slate-300">Simulation Speed (Ticks / Frame)</span>
+            <span class="text-slate-300">Simulation Speed (Real-Time Biological Ticks)</span>
             <span id="simSpeedVal" class="mono text-sky-400">3x</span>
           </div>
           <input id="simSpeedSlider" type="range" min="1" max="10" step="1" value="3" class="w-full" />
@@ -710,6 +745,8 @@
         fruitingRate: 1.0,
         senescenceRate: 0.65,
         sporeRate: 0.35,
+        motionSoftness: 0.75,  // visual tissue interpolation, independent of growth simulation
+        frontCreep: 1.25,      // deterministic continuous front biomass accumulation
         paletteMode: 1,         // 1: UV Biolum, 2: Opaline, 3: Alien Acid, 4: Abyssal, 0: Natural
         hueShift: 0.0,
         psyIntensity: 1.35,
@@ -968,44 +1005,58 @@
 
             // CASE A: Uncolonized or recently eroded bare substrate — check advancing front
             if (b < 0.05) {
-              if (maxNb > 0.16 && nec < 0.25) {
-                const traits = SPECIES_TRAITS[bestSp];
+              if (maxNb > 0.14 && nec < 0.25) {
+                // Once microscopic growth takes hold, keep its original species.
+                const frontSp = col > 0 ? sp : bestSp;
+                const frontCol = col > 0 ? col : bestCol;
+                const traits = SPECIES_TRAITS[frontSp];
                 // Compute true polar angle & radial distance from colony origin for realistic bifurcating lobes
-                const ox = colonyOriginX[bestCol] || x;
-                const oy = colonyOriginY[bestCol] || y;
+                const ox = colonyOriginX[frontCol] || x;
+                const oy = colonyOriginY[frontCol] || y;
                 const dx = x - ox;
                 const dy = y - oy;
                 const distFromOrigin = Math.sqrt(dx * dx + dy * dy);
                 const theta = Math.atan2(dy, dx);
 
                 // Dichotomous tip splitting: number of radial lobe fingers doubles as radius expands
-                const warpTheta = theta + 0.35 * (smoothNoise(x * 0.08 + bestCol * 3.7, y * 0.08) - 0.5);
-                const primaryLobes = 0.5 + 0.5 * Math.cos(warpTheta * traits.branchFreq + bestCol * 1.9);
-                const bifurcatedLobes = 0.5 + 0.5 * Math.cos(warpTheta * traits.branchFreq * 2.0 - distFromOrigin * 0.18 + bestCol * 4.3);
+                const warpTheta = theta + 0.35 * (smoothNoise(x * 0.08 + frontCol * 3.7, y * 0.08) - 0.5);
+                const primaryLobes = 0.5 + 0.5 * Math.cos(warpTheta * traits.branchFreq + frontCol * 1.9);
+                const bifurcatedLobes = 0.5 + 0.5 * Math.cos(warpTheta * traits.branchFreq * 2.0 - distFromOrigin * 0.18 + frontCol * 4.3);
                 const blendSplit = Math.min(1.0, distFromOrigin / 26.0);
                 const radialFinger = (1.0 - blendSplit) * primaryLobes + blendSplit * (0.45 * primaryLobes + 0.55 * bifurcatedLobes);
 
-                const fineFinger = smoothNoise(x * 0.22 + bestCol * 3.1, y * 0.22);
+                const fineFinger = smoothNoise(x * 0.22 + frontCol * 3.1, y * 0.22);
                 const lobeFactor = (1.0 - traits.lobeAnisotropy) + traits.lobeAnisotropy * Math.pow(radialFinger * 0.72 + fineFinger * 0.28, 1.85) * 2.45;
 
                 // Coffee-drop perimeter CO2 flux + rock micro-crevice channeling
                 const rockAffinity = 0.7 + 0.3 * (1.0 - rockField[i]);
                 const advanceProb = traits.growthSpeed * hydrationActivity * newN * lobeFactor * rockAffinity;
 
-                if (hash2(x + Math.floor(simYears * 120), y * 17 + Math.floor(simYears * 120)) < advanceProb * 1.5) {
-                  nextBiomass[i] = 0.14;
+                // Smooth continuous advance, NOT a random hard jump from 0 to 0.14.
+                // A colony's polarized, moisture-driven growth front accumulates tiny
+                // amounts of biomass on each tick. The microscope shader reveals
+                // them gradually as the cortex thickens and folds.
+                const frontPressure = Math.max(0.12, Math.min(1.0, (maxNb - 0.08) / 0.33));
+                const frontIncrement = Math.min(0.024, Math.max(0.00012,
+                  advanceProb * 0.18 * params.frontCreep)) * frontPressure;
+                nextBiomass[i] = Math.min(0.052, b + frontIncrement);
+
+                // Assign species/colony once as a microscopic front arrives.
+                // Retain ownership while the front thickens to prevent
+                // species-swapping flicker along competing thallus boundaries.
+                if (col === 0) {
                   speciesField[i] = bestSp;
                   colonyIdField[i] = bestCol;
-                  ageField[i] = 0.05;
+                  ageField[i] = 0.012;
                   stressField[i] = 0.0;
                   crackField[i] = 0.0;
                   fruitingField[i] = 0.0;
-                } else {
-                  nextBiomass[i] = b * 0.95;
                 }
               } else {
-                // Bare rock recovery: necrotic debris slowly washes away so new spores can colonize
-                nextBiomass[i] = 0.0;
+                // Withdraw unsupported microscopic tendrils gently instead of
+                // erasing a partially grown cell in a single frame.
+                nextBiomass[i] = Math.max(0.0, b - 0.0035);
+                if (nextBiomass[i] <= 0.0001 && col > 0) colonyIdField[i] = 0;
                 if (nec > 0.0) {
                   necrosisField[i] = Math.max(0.0, nec - 0.008);
                 }
@@ -2393,7 +2444,23 @@
       bindSlider('psyIntensitySlider', 'psyIntensityVal', 'psyIntensity');
       bindSlider('iridescenceSlider', 'iridescenceVal', 'iridescence');
       bindSlider('fluorescenceSlider', 'fluorescenceVal', 'fluorescence');
-      bindSlider('simSpeedSlider', 'simSpeedVal', 'simSpeed', v => `${Math.round(v)}x`);
+      bindSlider('simSpeedSlider', 'simSpeedVal', 'simSpeed', v => `${Math.round(v)}x`); 
+      bindSlider('motionSoftnessSlider', 'motionSoftnessVal', 'motionSoftness',
+        v => `${Math.round(v * 100)}%`);
+      bindSlider('frontCreepSlider', 'frontCreepVal', 'frontCreep',
+        v => `${v.toFixed(2)}x`);
+      const motionPreset = (softness, creep) => {
+        params.motionSoftness = softness;
+        params.frontCreep = creep;
+        document.getElementById('motionSoftnessSlider').value = softness;
+        document.getElementById('motionSoftnessVal').textContent = `${Math.round(softness * 100)}%`;
+        document.getElementById('frontCreepSlider').value = creep;
+        document.getElementById('frontCreepVal').textContent = `${creep.toFixed(2)}x`;
+      };
+      document.getElementById('motionSilkyBtn').addEventListener('click',
+        () => motionPreset(0.85, 1.20));
+      document.getElementById('motionRawBtn').addEventListener('click',
+        () => motionPreset(0, 1.0));
       bindSlider('hydrationSlider', 'hydrationVal', 'ambientHydration');
       bindSlider('fractureSlider', 'fractureVal', 'fractureRate');
       bindSlider('fruitingSlider', 'fruitingVal', 'fruitingRate');
@@ -2459,6 +2526,42 @@
         link.click();
       });
 
+
+      // Biologically grounded smooth motion. The simulation fields stay authoritative;
+      // only the GPU-facing color/relief texture is temporally interpolated.
+      // Packed bytes are independently eased using float working buffers, so changes
+      // smaller than a single 8-bit increment are not lost between display frames.
+      const displayedBio = new Float32Array(bioTexData.length);
+      const displayedFruiting = new Float32Array(NUM_CELLS);
+      const renderBioTexData = new Uint8Array(bioTexData.length);
+      const renderAuxTexData = new Uint8Array(auxTexData.length);
+      let displayReady = false;
+      function updateSmoothRenderTextures(deltaMs, forceCurrent = false) {
+        const amount = Math.max(0.0, Math.min(1.0, params.motionSoftness));
+        const lagMs = 10 + 240.0 * amount * amount;
+        const alpha = forceCurrent || amount <= 0.001 ? 1.0
+          : 1.0 - Math.exp(-Math.max(0.0, Math.min(100.0, deltaMs)) / lagMs);
+        const initialize = !displayReady;
+        for (let i = 0; i < NUM_CELLS; i++) {
+          const j = i * 4;
+          for (let channel = 0; channel < 4; channel++) {
+            const p = j + channel;
+            const target = bioTexData[p];
+            const blended = initialize ? target : displayedBio[p] + alpha * (target - displayedBio[p]);
+            displayedBio[p] = blended;
+            renderBioTexData[p] = Math.round(blended);
+          }
+          const fruit = auxTexData[j + 1];
+          const smoothFruit = initialize ? fruit : displayedFruiting[i] + alpha * (fruit - displayedFruiting[i]);
+          displayedFruiting[i] = smoothFruit;
+          renderAuxTexData[j] = auxTexData[j];          // categorical species: never interpolate IDs
+          renderAuxTexData[j + 1] = Math.round(smoothFruit);
+          renderAuxTexData[j + 2] = auxTexData[j + 2];  // polar angle: do not blend across wrap seam
+          renderAuxTexData[j + 3] = auxTexData[j + 3];  // categorical colony ID: no ghost colonies
+        }
+        displayReady = true;
+      }
+
       // ============================================================================
       // 6. INITIALIZATION & MAIN ANIMATION LOOP
       // ============================================================================
@@ -2471,31 +2574,55 @@
 
       let lichenExportLock = false;
       let lichenExportSteps = params.simSpeed;
-      function renderLoop(nowMs, exportPass = false, advance = true) {
-        // Pause the realtime loop while deterministic export frames are drawn.
-        // Keep requesting RAFs so playback automatically resumes afterward.
+      // Keep growth speed independent of monitor refresh rate (30/60/120 Hz).
+      const BASE_BIO_TICKS_PER_SECOND = 20;
+      let previousFrameMs = 0;
+      let growthAccumulatorMs = 0;
+      function renderLoop(nowMs, exportPass = false, advance = true, exportDeltaMs = 0) {
+        // Pause realtime stepping during frame-perfect exports; don't accumulate
+        // wall-clock delays that would cause a giant jump after encoding.
         if (lichenExportLock && !exportPass) {
+          previousFrameMs = nowMs;
           requestAnimationFrame(renderLoop);
           return;
         }
-        if (!exportPass) resizeCanvas();
-
-        if ((exportPass && advance) || (!exportPass && isRunning)) {
-          const steps = exportPass ? lichenExportSteps : params.simSpeed;
-          for (let s = 0; s < steps; s++) {
-            stepBiologicalSimulation();
-          }
-          syncTextures();
+        const dtMs = exportPass
+          ? (Number.isFinite(exportDeltaMs) && exportDeltaMs > 0 ? exportDeltaMs : 1000 / 15)
+          : (previousFrameMs > 0 ? Math.min(75, Math.max(0, nowMs - previousFrameMs)) : 1000 / 60);
+        if (!exportPass) {
+          previousFrameMs = nowMs;
+          resizeCanvas();
         }
+
+        if (exportPass && advance) {
+          // An exported biological frame advances by the user's chosen number
+          // of ticks, independently of desktop/mobile preview performance.
+          for (let s = 0; s < lichenExportSteps; s++) stepBiologicalSimulation();
+          syncTextures();
+        } else if (!exportPass && isRunning) {
+          const tickMs = 1000 / (BASE_BIO_TICKS_PER_SECOND * Math.max(1, params.simSpeed));
+          growthAccumulatorMs = Math.min(growthAccumulatorMs + dtMs, tickMs * 6);
+          let steps = 0;
+          while (growthAccumulatorMs >= tickMs && steps < 6) {
+            stepBiologicalSimulation();
+            growthAccumulatorMs -= tickMs;
+            steps++;
+          }
+          if (steps > 0) syncTextures();
+        } else if (!exportPass) {
+          // Paused simulation should resume without a burst of catch-up ticks.
+          growthAccumulatorMs = 0;
+        }
+        updateSmoothRenderTextures(dtMs, exportPass && !advance);
 
         // Upload updated biological state textures
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, bioTex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, GRID_SIZE, GRID_SIZE, 0, gl.RGBA, gl.UNSIGNED_BYTE, bioTexData);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, GRID_SIZE, GRID_SIZE, 0, gl.RGBA, gl.UNSIGNED_BYTE, renderBioTexData);
 
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, auxTex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, GRID_SIZE, GRID_SIZE, 0, gl.RGBA, gl.UNSIGNED_BYTE, auxTexData);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, GRID_SIZE, GRID_SIZE, 0, gl.RGBA, gl.UNSIGNED_BYTE, renderAuxTexData);
 
         // Compute 3D directional light vector from Azimuth & Elevation
         const cosEl = Math.cos(params.lightElevation);
@@ -2531,7 +2658,7 @@
           window.setupLichenStudio({
             gl, canvas, params, uniforms,
             getYears: () => simYears,
-            exportFrame: (t, advance) => renderLoop(t, true, advance),
+            exportFrame: (t, advance, dt) => renderLoop(t, true, advance, dt),
             setExportLock: (locked, growthSteps) => {
               lichenExportLock = locked;
               if (Number.isFinite(growthSteps)) lichenExportSteps = Math.max(0, Math.min(12, growthSteps));
