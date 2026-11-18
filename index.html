@@ -1065,6 +1065,15 @@
       // ============================================================================
       const canvas = document.getElementById('lichenCanvas');
       const gl = canvas.getContext('webgl2', { preserveDrawingBuffer: true, antialias: true });
+      if (!gl) {
+        const warning = document.createElement('div');
+        warning.setAttribute('role', 'alert');
+        warning.style.cssText = 'position:absolute;inset:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;background:#100e18;color:#f1d8ff;border:1px solid #9b5de5;border-radius:12px;font:14px/1.6 system-ui,sans-serif;z-index:10';
+        warning.innerHTML = '<strong style="font-size:17px">WebGL2 is unavailable in this browser</strong><span>Try Safari or Chrome with hardware acceleration enabled. The lichen simulation needs WebGL2 to draw its 3D microtextures.</span>';
+        canvas.parentElement.appendChild(warning);
+        console.error('Lichen Vivarium II: WebGL2 context unavailable');
+        return;
+      }
 
       const vsSource = `#version 300 es
         in vec2 aPosition;
