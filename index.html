@@ -1,18 +1,2403 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>lichen vivarium 2</title>
-    <meta name="description" content="lichen vivarium 2" />
-    <meta property="og:title" content="lichen vivarium 2" />
-    <meta property="og:description" content="lichen vivarium 2" />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>The Photorealistic Lichen Engine — Morphogenesis & Senescence</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #090a0c;
+      color: #e2e8f0;
+      overflow-x: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Custom Subtle Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f1115;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #272b36;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3b4252;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: #1e222d;
+      height: 6px;
+      border-radius: 999px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      border: 2px solid #090a0c;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+      transition: transform 0.1s ease, background-color 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+      background: #7dd3fc;
+    }
+    .canvas-container {
+      box-shadow: inset 0 0 60px rgba(0,0,0,0.85), 0 10px 40px -10px rgba(0,0,0,0.9);
+    }
+    .species-pill.active {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.14);
+      box-shadow: 0 0 15px -3px rgba(56, 189, 248, 0.35);
+    }
+    .palette-pill.active {
+      border-color: #e879f9;
+      background: rgba(232, 121, 249, 0.14);
+      box-shadow: 0 0 15px -3px rgba(232, 121, 249, 0.35);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col lg:flex-row bg-[#08090c] text-slate-200">
 
+  <!-- LEFT / TOP STICKY VIEWPORT AREA -->
+  <div class="relative flex-1 flex flex-col items-center justify-center p-2 sm:p-4 lg:h-screen lg:sticky lg:top-0 bg-[#060709]">
+    
+    <!-- Top Floating HUD -->
+    <div class="w-full max-w-[920px] flex flex-wrap items-center justify-between gap-2 mb-2 px-2 py-1.5 rounded-xl bg-slate-900/80 backdrop-blur-md border border-slate-800/80 text-xs">
+      <div class="flex items-center gap-2.5">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" id="statusDot"></span>
+        <span class="font-semibold tracking-wide text-slate-100 uppercase">Lichen Morphogenesis Engine</span>
+        <span class="px-2 py-0.5 rounded bg-slate-800 text-sky-400 mono text-[11px]" id="yearReadout">Year 0.0</span>
+        <span class="hidden sm:inline-block px-2 py-0.5 rounded bg-slate-800/90 text-fuchsia-300 mono text-[11px]" id="phaseReadout">Phase: Colonization</span>
+      </div>
+      <div class="flex items-center gap-3 mono text-[11px] text-slate-400">
+        <div>Biomass: <span id="biomassReadout" class="text-slate-200">0%</span></div>
+        <div>Necrosis: <span id="necrosisReadout" class="text-amber-400">0%</span></div>
+        <div>Hydration: <span id="hydrationHud" class="text-cyan-300">72%</span></div>
+      </div>
+    </div>
+
+    <!-- Main Interactive Macro Canvas -->
+    <div id="viewportWrapper" class="relative w-full max-w-[920px] aspect-square max-h-[68vh] lg:max-h-[82vh] rounded-2xl overflow-hidden canvas-container border border-slate-800/90 bg-black flex items-center justify-center">
+      <canvas id="lichenCanvas" class="w-full h-full block cursor-crosshair touch-none"></canvas>
+
+      <!-- Raking Light & Scale Bar Overlay -->
+      <div class="pointer-events-none absolute bottom-3 left-3 flex items-center gap-3 bg-black/65 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-[11px] mono text-slate-300">
+        <div class="flex flex-col">
+          <div class="w-12 h-1 border-b-2 border-l-2 border-r-2 border-slate-300 mb-0.5"></div>
+          <span class="text-[9px] text-slate-400 text-center" id="scaleBarLabel">5.0 mm</span>
+        </div>
+        <div class="h-5 w-px bg-slate-700"></div>
+        <div id="activeToolHint" class="text-slate-300">Click: Seed • Shift+Drag: Sun • Right/Alt+Drag: Pan • Wheel: Zoom</div>
+      </div>
+
+      <!-- Grayscale Truth Check Badge -->
+      <div id="grayscaleBadge" class="hidden pointer-events-none absolute top-3 right-3 bg-amber-500/20 border border-amber-400/50 text-amber-200 px-3 py-1 rounded-lg text-xs font-medium backdrop-blur-md">
+        GRAYSCALE ANATOMY PROOF MODE (Pigments Stripped)
+      </div>
+    </div>
+
+    <!-- Quick Transport Bar below Canvas -->
+    <div class="w-full max-w-[920px] mt-2.5 flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800">
+      <div class="flex items-center gap-1.5">
+        <button id="playPauseBtn" class="px-3.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs flex items-center gap-1.5 transition shadow-lg shadow-sky-500/20">
+          <span id="playPauseIcon">⏸</span> <span id="playPauseText">Pause</span>
+        </button>
+        <button id="stepDecadeBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs border border-slate-700 transition">
+          +1 Decade Burst
+        </button>
+        <button id="rainPulseBtn" class="px-3 py-1.5 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-700/60 text-cyan-200 font-medium text-xs transition flex items-center gap-1">
+          🌧️ Rain Deluge
+        </button>
+        <button id="desiccateBtn" class="px-3 py-1.5 rounded-lg bg-amber-950/70 hover:bg-amber-900/80 border border-amber-700/50 text-amber-200 font-medium text-xs transition flex items-center gap-1">
+          ☀️ Drought Shock
+        </button>
+      </div>
+
+      <div class="flex items-center gap-1.5">
+        <button id="grayscaleToggleBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-medium text-xs transition" title="A lichen must still look like real lichen in grayscale!">
+          👁️ Grayscale Proof
+        </button>
+        <button id="reseedEcosystemBtn" class="px-3 py-1.5 rounded-lg bg-fuchsia-950/80 hover:bg-fuchsia-900 border border-fuchsia-700/60 text-fuchsia-200 font-medium text-xs transition">
+          ✨ New Colony Slate
+        </button>
+        <button id="clearSlateBtn" class="px-2.5 py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900/70 border border-rose-800/60 text-rose-300 font-medium text-xs transition">
+          Bare Rock
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT / BOTTOM SCIENTIFIC & PSYCHEDELIC CONTROL PANEL -->
+  <aside class="w-full lg:w-[440px] xl:w-[480px] bg-[#0d0f14] border-t lg:border-t-0 lg:border-l border-slate-800/90 flex flex-col lg:h-screen lg:overflow-y-auto">
+    
+    <!-- Header -->
+    <div class="p-4 border-b border-slate-800/80 bg-[#0a0c10]">
+      <div class="flex items-center justify-between">
+        <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
+          <span class="text-fuchsia-400">●</span> Photorealistic Lichen Lab
+        </h1>
+        <span class="text-[11px] mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">256² Coupled PDE + WebGL2</span>
+      </div>
+      <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+        True-to-paper tissue morphogenesis: hypothallus rim, CO₂ diffusion saturation, polygonal areole fracture, Lobaria reticulate ridges, apothecial cups, senescence necrosis, and central flake-off.
+      </p>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="grid grid-cols-4 border-b border-slate-800 bg-[#090b0f] text-xs font-medium">
+      <button data-tab="tab-engines" class="tab-btn py-2.5 border-b-2 border-sky-400 text-sky-400 bg-slate-900/50">1. Species</button>
+      <button data-tab="tab-psychedelic" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">2. Pigments</button>
+      <button data-tab="tab-lifecycle" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">3. Life/Death</button>
+      <button data-tab="tab-optics" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">4. Optics/3D</button>
+    </div>
+
+    <!-- TAB 1: FIVE GROWTH ENGINES & INTERACTION -->
+    <div id="tab-engines" class="tab-panel p-4 space-y-4">
+      
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-xs font-semibold uppercase tracking-wider text-slate-300">Brush Action Mode</label>
+          <span class="text-[11px] text-sky-400 mono">Click or drag on rock</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-xs">
+          <button data-tool="seed" class="tool-btn py-2 px-2.5 rounded-lg border border-sky-500 bg-sky-500/15 text-sky-200 font-medium text-center">🌱 Inoculate Thallus</button>
+          <button data-tool="water" class="tool-btn py-2 px-2.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 font-medium text-center">💧 Local Mist</button>
+          <button data-tool="scrape" class="tool-btn py-2 px-2.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 font-medium text-center">🪨 Scrape / Weather</button>
+        </div>
+      </div>
+
+      <!-- The 5 Growth Engines from the PDF -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-xs font-semibold uppercase tracking-wider text-slate-300">Select Growth Engine (5 Taxa)</label>
+          <span class="text-[10px] mono text-slate-400">[Evidence A/B/C]</span>
+        </div>
+        <div class="space-y-2" id="speciesSelector">
+          
+          <button data-species="0" class="species-pill active w-full text-left p-2.5 rounded-xl border border-slate-800 bg-slate-900/70 hover:bg-slate-900 transition flex items-start gap-3">
+            <span class="w-3.5 h-3.5 rounded-full mt-1 shrink-0 bg-lime-400 shadow-[0_0_10px_#a3e635]"></span>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white">1. AREOLE — Rhizocarpon geographicum</span>
+                <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-slate-800 text-lime-300">Crustose</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5">Black pioneering hypothallus margin; stress-driven polygonal fissures separating raised mosaic areoles & dark sunken apothecia.</p>
+            </div>
+          </button>
+
+          <button data-species="1" class="species-pill w-full text-left p-2.5 rounded-xl border border-slate-800 bg-slate-900/70 hover:bg-slate-900 transition flex items-start gap-3">
+            <span class="w-3.5 h-3.5 rounded-full mt-1 shrink-0 bg-amber-400 shadow-[0_0_10px_#fbbf24]"></span>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white">2. LOBE — Lobaria / Xanthoria parietina</span>
+                <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-slate-800 text-amber-300">Foliose</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5">Semi-autonomous bifurcating leafy lobes, reticulate water-holding surface ridges, curled dry margins, and raised toroidal apothecial discs.</p>
+            </div>
+          </button>
+
+          <button data-species="2" class="species-pill w-full text-left p-2.5 rounded-xl border border-slate-800 bg-slate-900/70 hover:bg-slate-900 transition flex items-start gap-3">
+            <span class="w-3.5 h-3.5 rounded-full mt-1 shrink-0 bg-cyan-400 shadow-[0_0_10px_#22d3ee]"></span>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white">3. THALLUS AXIS — Cladonia / Ramalina</span>
+                <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300">Fruticose</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5">3D branching dendrite axes & perforated reticulate lace networks casting deep raking-light shadows across the substrate.</p>
+            </div>
+          </button>
+
+          <button data-species="3" class="species-pill w-full text-left p-2.5 rounded-xl border border-slate-800 bg-slate-900/70 hover:bg-slate-900 transition flex items-start gap-3">
+            <span class="w-3.5 h-3.5 rounded-full mt-1 shrink-0 bg-fuchsia-400 shadow-[0_0_10px_#e879f9]"></span>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white">4. SQUAMULE / SORALIUM — C. pyxidata</span>
+                <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-slate-800 text-fuchsia-300">Composite</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5">Overlapping basal squamule scales that erupt into hollow goblet-like pixie cups (scyphi) and powdery soredia granule clusters.</p>
+            </div>
+          </button>
+
+          <button data-species="4" class="species-pill w-full text-left p-2.5 rounded-xl border border-slate-800 bg-slate-900/70 hover:bg-slate-900 transition flex items-start gap-3">
+            <span class="w-3.5 h-3.5 rounded-full mt-1 shrink-0 bg-violet-400 shadow-[0_0_10px_#a78bfa]"></span>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white">5. HYDRA / UMBILICUS — Lasallia / Enchylium</span>
+                <span class="text-[10px] mono px-1.5 py-0.5 rounded bg-slate-800 text-violet-300">Gelatinous</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5">Umbilicate radial pleats & blister pustules with dramatic hydration swelling, subsurface jelly translucency, and dry brittle shrinkage.</p>
+            </div>
+          </button>
+
+        </div>
+      </div>
+
+      <!-- Inoculation & Life-Stage Presets -->
+      <div class="pt-2 border-t border-slate-800/80">
+        <label class="text-xs font-semibold uppercase tracking-wider text-slate-300 block mb-2">Instant Chronology Jump</label>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <button id="presetYoungBtn" class="py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 transition text-left">
+            <div class="font-semibold text-emerald-400">🌱 Pioneer Spores (Yr 5)</div>
+            <div class="text-[10px] text-slate-400">Small accelerating circular disks</div>
+          </button>
+          <button id="presetMatureBtn" class="py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 transition text-left">
+            <div class="font-semibold text-sky-400">🌿 Mature Mosaic (Yr 45)</div>
+            <div class="text-[10px] text-slate-400">Colliding fronts, cups & areoles</div>
+          </button>
+          <button id="presetAncientBtn" class="py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 transition text-left">
+            <div class="font-semibold text-amber-400">🍂 Senescent Decay (Yr 110)</div>
+            <div class="text-[10px] text-slate-400">Bleached cores, cracking & rot</div>
+          </button>
+          <button id="presetRingBtn" class="py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 transition text-left">
+            <div class="font-semibold text-fuchsia-400">⭕ Fairy Ring Succession</div>
+            <div class="text-[10px] text-slate-400">Collapsed dead center + new spores</div>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TAB 2: PSYCHEDELIC PIGMENT METAMORPHOSIS (LAYER IV) -->
+    <div id="tab-psychedelic" class="tab-panel hidden p-4 space-y-4">
+      <div class="p-3 rounded-xl bg-fuchsia-950/25 border border-fuchsia-800/40 text-xs text-fuchsia-200 leading-relaxed">
+        <strong>Layer IV Architecture:</strong> Pigments are bound in biological material coordinates (cortex, medulla, photobiont layer, apothecial rim, and necrotic bleach) <em>before</em> microfacet lighting and shadows.
+      </div>
+
+      <div>
+        <label class="text-xs font-semibold uppercase tracking-wider text-slate-300 block mb-2">Psychedelic Palette Mode [Evidence D]</label>
+        <div class="grid grid-cols-1 gap-2" id="paletteSelector">
+          <button data-palette="1" class="palette-pill active p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 text-left flex items-center justify-between">
+            <div>
+              <div class="text-xs font-bold text-white">1. UV Parietin Bioluminescence (Default)</div>
+              <div class="text-[11px] text-slate-400">Electric cyan margins, hyper-magenta cortex, acid-gold apothecia, ultraviolet cracks</div>
+            </div>
+            <div class="flex -space-x-1">
+              <span class="w-4 h-4 rounded-full bg-cyan-400 border border-black"></span>
+              <span class="w-4 h-4 rounded-full bg-fuchsia-500 border border-black"></span>
+              <span class="w-4 h-4 rounded-full bg-lime-400 border border-black"></span>
+            </div>
+          </button>
+
+          <button data-palette="2" class="palette-pill p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 text-left flex items-center justify-between">
+            <div>
+              <div class="text-xs font-bold text-white">2. Dichroic Opaline & Structural Thin-Film</div>
+              <div class="text-[11px] text-slate-400">Grazing-angle iridescent oil-slick interference over deep velvet fungal tissue</div>
+            </div>
+            <div class="flex -space-x-1">
+              <span class="w-4 h-4 rounded-full bg-indigo-400 border border-black"></span>
+              <span class="w-4 h-4 rounded-full bg-emerald-400 border border-black"></span>
+              <span class="w-4 h-4 rounded-full bg-rose-400 border border-black"></span>
+            </div>
+          </button>
+
+          <button data-palette="3" class="palette-pill p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 text-left flex items-center justify-between">
+            <div>
+              <div class="text-xs font-bold text-white">3. Alien Mycobiont / Chromatic Acid</div>
+              <div class="text-[11px] text-slate-400">Radioactive chartreuse, laser violet, toxic coral cups & bruised indigo senescence</div>
+            </div>
+            <div class="flex -space-x-1">
+              <span class="w-4 h-4 rounded-full bg-lime-300 border border-black"></span>
+              <span class="w-4 h-4 rounded-full bg-violet-500 border border-black"></span>
+              <span class="w-4 h-4 rounded-full bg-orange-500 border border-black"></span>
+            </div>
+          </button>
+
+          <button data-palette="4" class="palette-pill p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 text-left flex items-center justify-between">
+            <div>
+              <div class="text-xs font-bold text-white">4. Abyssal Hydrothermal Phosphor</div>
+              <div class="text-[11px] text-slate-400">Deep sea cobalt, bioluminescent teal soredia, crimson fruiting rims</div>
+            </div>
+            <div class="flex -space-x-1">
+              <span class="w-4 h-4 rounded-full bg-blue-500 border border-black"></span>
+              <span class="w-4 h-4 rounded-full bg-teal-300 border border-black"></span>
+              <span class="w-4 h-4 rounded-full bg-red-500 border border-black"></span>
+            </div>
+          </button>
+
+          <button data-palette="5" class="palette-pill p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 text-left flex items-center justify-between">
+            <div>
+              <div class="text-xs font-bold text-white">5. Solarized Infrared Herbarium (Aerochrome)</div>
+              <div class="text-[11px] text-slate-400">Kodak Aerochrome false-color crimson chlorophyll, gold rims & obsidian slate</div>
+            </div>
+            <div class="flex -space-x-1">
+              <span class="w-4 h-4 rounded-full bg-rose-500 border border-black"></span>
+              <span class="w-4 h-4 rounded-full bg-amber-300 border border-black"></span>
+              <span class="w-4 h-4 rounded-full bg-cyan-300 border border-black"></span>
+            </div>
+          </button>
+
+          <button data-palette="0" class="palette-pill p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 text-left flex items-center justify-between">
+            <div>
+              <div class="text-xs font-bold text-white">0. Botanical Ground-Truth (Natural Herbarium)</div>
+              <div class="text-[11px] text-slate-400">Calibrated sulfur-green Rhizocarpon, xanthoria orange, slate-grey Parmelia</div>
+            </div>
+            <div class="flex -space-x-1">
+              <span class="w-4 h-4 rounded-full bg-yellow-500 border border-black"></span>
+              <span class="w-4 h-4 rounded-full bg-emerald-700 border border-black"></span>
+              <span class="w-4 h-4 rounded-full bg-stone-400 border border-black"></span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Psychedelic Sliders -->
+      <div class="space-y-3 pt-2 border-t border-slate-800">
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Pigment Hue Phase Shift</span>
+            <span id="hueShiftVal" class="mono text-fuchsia-400">0°</span>
+          </div>
+          <input id="hueShiftSlider" type="range" min="0" max="360" step="1" value="0" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Psychedelic Chroma Intensity</span>
+            <span id="psyIntensityVal" class="mono text-fuchsia-400">1.35</span>
+          </div>
+          <input id="psyIntensitySlider" type="range" min="0" max="2.5" step="0.05" value="1.35" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Thin-Film Iridescence (Grazing Opal)</span>
+            <span id="iridescenceVal" class="mono text-fuchsia-400">0.65</span>
+          </div>
+          <input id="iridescenceSlider" type="range" min="0" max="1.5" step="0.05" value="0.65" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">UV Parietin Fluorescence Yield</span>
+            <span id="fluorescenceVal" class="mono text-fuchsia-400">0.55</span>
+          </div>
+          <input id="fluorescenceSlider" type="range" min="0" max="1.5" step="0.05" value="0.55" class="w-full" />
+        </div>
+
+        <button id="surprisePigmentBtn" class="w-full py-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-cyan-500 hover:from-fuchsia-500 hover:to-cyan-400 text-slate-950 font-bold text-xs shadow-lg transition">
+          🎲 Mutate Extraterrestrial Pigment Genome (Keep Anatomy)
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB 3: FULL GROWTH TO DEATH LIFECYCLE PARAMETERS -->
+    <div id="tab-lifecycle" class="tab-panel hidden p-4 space-y-4">
+      <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 leading-relaxed space-y-1">
+        <div class="font-semibold text-sky-400">Biological Lifecycle Stages Modeled:</div>
+        <p class="text-[11px] text-slate-400">
+          <strong>1. Spore & Hypothallus:</strong> Dark fungal mat advances first.<br/>
+          <strong>2. Coffee-Drop CO₂ Growth:</strong> Small thalli accelerate ($\d R/\d t \sim R$); large thalli saturate at perimeter.<br/>
+          <strong>3. Maturation:</strong> Stress fractures crust into areoles; older centers bud apothecial cups & soredia.<br/>
+          <strong>4. Senescence & Death:</strong> Ancient interior exhausts substrate nutrients, bleaches to bone-white/charcoal, crumbles, and flakes off—opening bare rock for re-colonization.
+        </p>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Simulation Speed (Ticks / Frame)</span>
+            <span id="simSpeedVal" class="mono text-sky-400">3x</span>
+          </div>
+          <input id="simSpeedSlider" type="range" min="1" max="10" step="1" value="3" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Ambient Hydration / Moisture ($H$)</span>
+            <span id="hydrationVal" class="mono text-cyan-400">0.72</span>
+          </div>
+          <input id="hydrationSlider" type="range" min="0.05" max="1.0" step="0.01" value="0.72" class="w-full" />
+          <p class="text-[10px] text-slate-500 mt-0.5">Controls photosynthesis activation, gelatinous swelling, wet darkening & dry lobe curling.</p>
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Areole Fracture & Stress Rate</span>
+            <span id="fractureVal" class="mono text-sky-400">0.85</span>
+          </div>
+          <input id="fractureSlider" type="range" min="0.1" max="2.0" step="0.05" value="0.85" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Apothecia & Soredia Fruiting Density</span>
+            <span id="fruitingVal" class="mono text-sky-400">1.00</span>
+          </div>
+          <input id="fruitingSlider" type="range" min="0.0" max="2.0" step="0.05" value="1.00" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Senescence, Necrosis & Die-Off Rate</span>
+            <span id="senescenceVal" class="mono text-amber-400">0.65</span>
+          </div>
+          <input id="senescenceSlider" type="range" min="0.0" max="2.0" step="0.05" value="0.65" class="w-full" />
+          <p class="text-[10px] text-slate-500 mt-0.5">Higher values cause older colony centers to bleach, crack, die, and slough off into fairy rings faster.</p>
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Spontaneous Spore Wind Dispersal</span>
+            <span id="sporeRateVal" class="mono text-emerald-400">Auto</span>
+          </div>
+          <input id="sporeRateSlider" type="range" min="0.0" max="1.0" step="0.05" value="0.35" class="w-full" />
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: 3D RELIEF, RAKING LIGHT & MICROSCOPY OPTICS -->
+    <div id="tab-optics" class="tab-panel hidden p-4 space-y-4">
+      <div class="space-y-3">
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Raking Light Azimuth Angle</span>
+            <span id="lightAzimuthVal" class="mono text-sky-400">135°</span>
+          </div>
+          <input id="lightAzimuthSlider" type="range" min="0" max="360" step="1" value="135" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Grazing Sun Elevation (Shadow Depth)</span>
+            <span id="lightElevationVal" class="mono text-sky-400">26°</span>
+          </div>
+          <input id="lightElevationSlider" type="range" min="8" max="80" step="1" value="26" class="w-full" />
+          <p class="text-[10px] text-slate-500 mt-0.5">Low raking angles (15°–30°) reveal micro-relief, cortical pores, and apothecial cup rims.</p>
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">3D Thallus Relief & Lobe Thickness</span>
+            <span id="reliefHeightVal" class="mono text-sky-400">1.15</span>
+          </div>
+          <input id="reliefHeightSlider" type="range" min="0.3" max="2.2" step="0.05" value="1.15" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Micro-Cortex Pore & Soredia Grain</span>
+            <span id="microDetailVal" class="mono text-sky-400">1.00</span>
+          </div>
+          <input id="microDetailSlider" type="range" min="0.0" max="2.0" step="0.05" value="1.00" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Beer-Lambert Subsurface Scattering</span>
+            <span id="sssVal" class="mono text-sky-400">0.85</span>
+          </div>
+          <input id="sssSlider" type="range" min="0.0" max="1.8" step="0.05" value="0.85" class="w-full" />
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">3D Parallax & Undercut Depth</span>
+            <span id="parallaxVal" class="mono text-sky-400">1.00</span>
+          </div>
+          <input id="parallaxSlider" type="range" min="0.0" max="2.0" step="0.05" value="1.00" class="w-full" />
+          <p class="text-[10px] text-slate-500 mt-0.5">Ray-marches true 3D silhouette offsets for overlapping lobe shelves, deep fissures & hollow pixie cups.</p>
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Macro Camera Zoom</span>
+            <span id="zoomVal" class="mono text-sky-400">1.00x</span>
+          </div>
+          <input id="zoomSlider" type="range" min="0.6" max="3.5" step="0.05" value="1.00" class="w-full" />
+          <p class="text-[10px] text-slate-500 mt-0.5">Use mouse wheel on canvas or this slider to inspect individual cortical cells and apothecia.</p>
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Macro Lens Depth-of-Field & Dewdrops</span>
+            <span id="dofVal" class="mono text-sky-400">0.45</span>
+          </div>
+          <input id="dofSlider" type="range" min="0.0" max="1.5" step="0.05" value="0.45" class="w-full" />
+          <p class="text-[10px] text-slate-500 mt-0.5">Simulates 100mm f/2.8 macro lens optical vignette, micro-chromatic dispersion & condensation beads.</p>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-800 space-y-2">
+        <button id="resetCameraBtn" class="w-full py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-medium text-xs transition">
+          🎯 Recenter Macro Camera (1.0x)
+        </button>
+        <button id="exportPngBtn" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-semibold text-xs transition flex items-center justify-center gap-2">
+          📸 Capture High-Res Macro Photograph (PNG)
+        </button>
+      </div>
+    </div>
+
+    <!-- Footer Scientific Legend -->
+    <div class="mt-auto p-3.5 border-t border-slate-800/80 bg-[#080a0e] text-[11px] text-slate-400 space-y-1.5">
+      <div class="font-semibold text-slate-300 flex items-center justify-between">
+        <span>Anatomical Features Visible in Viewport:</span>
+        <span class="mono text-[10px] text-emerald-400">60 FPS WebGL2</span>
+      </div>
+      <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
+        <div>• <strong class="text-slate-200">Hypothallus:</strong> Dark pioneering rim</div>
+        <div>• <strong class="text-slate-200">Areoles:</strong> Stress-cracked crust</div>
+        <div>• <strong class="text-slate-200">Apothecia:</strong> Raised spore discs</div>
+        <div>• <strong class="text-slate-200">Soralia:</strong> Erupting powder rips</div>
+        <div>• <strong class="text-slate-200">Pruina:</strong> Crystalline micro-glints</div>
+        <div>• <strong class="text-slate-200">Senescence:</strong> Bleached eroding core</div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- APPLICATION SCRIPT: COUPLED PDE BIOLOGICAL ENGINE + WEBGL2 MICROFACET & RAYMARCH SHADER -->
+  <script>
+    (function() {
+      'use strict';
+
+      // ============================================================================
+      // 1. BIOLOGICAL SIMULATION GRID & COUPLED FIELDS (256 x 256)
+      // ============================================================================
+      const GRID_SIZE = 256;
+      const NUM_CELLS = GRID_SIZE * GRID_SIZE;
+
+      // Coupled Biological State Arrays
+      const biomass = new Float32Array(NUM_CELLS);      // B: 0..1 living thallus thickness/occupancy
+      const nextBiomass = new Float32Array(NUM_CELLS);
+      const ageField = new Float32Array(NUM_CELLS);     // A: biological age of tissue (0..120+ years)
+      const stressField = new Float32Array(NUM_CELLS);  // T: accumulated mechanical & desiccation strain
+      const crackField = new Float32Array(NUM_CELLS);   // D: irreversible fracture & areole clefts (0..1)
+      const necrosisField = new Float32Array(NUM_CELLS);// N_d: senescent bleaching, rotting & flaking (0..1)
+      const nutrientField = new Float32Array(NUM_CELLS);// C/N: available substrate & atmospheric resource
+      const nextNutrient = new Float32Array(NUM_CELLS);
+      const waterField = new Float32Array(NUM_CELLS);   // H: local moisture retention (0..1)
+      const fruitingField = new Float32Array(NUM_CELLS);// F: apothecial discs / podetia cups / soralia (0..1)
+      const speciesField = new Uint8Array(NUM_CELLS);   // 0..4 species engine ID
+      const colonyIdField = new Uint8Array(NUM_CELLS);  // distinct colony ID for suture line competition
+      const rockField = new Float32Array(NUM_CELLS);    // static slate cleavage, cracks & iron veins
+
+      // Track each colony's spore attachment origin (umbilicus/prothallus center) for true radial lobe morphogenesis
+      const colonyOriginX = new Float32Array(256);
+      const colonyOriginY = new Float32Array(256);
+
+      // Packed RGBA8 textures uploaded to WebGL2 each frame:
+      // Tex 1 (bioTexData): R = biomass, G = age, B = crack/damage, A = necrosis/death
+      // Tex 2 (auxTexData): R = speciesId, G = fruiting, B = radialAngle/Vector, A = colonyId
+      const bioTexData = new Uint8Array(NUM_CELLS * 4);
+      const auxTexData = new Uint8Array(NUM_CELLS * 4);
+
+      // Simulation Parameters & State
+      let isRunning = true;
+      let simYears = 0.0;
+      let activeSpecies = 0; // 0: Areole, 1: Lobe, 2: Fruticose Axis, 3: Squamule/Cup, 4: Hydra/Umbilicus
+      let activeTool = 'seed';
+      let nextColonyCounter = 1;
+
+      const params = {
+        simSpeed: 3,
+        ambientHydration: 0.72,
+        effectiveWetness: 0.72, // lagged hydration for viscoelastic swelling
+        fractureRate: 0.85,
+        fruitingRate: 1.0,
+        senescenceRate: 0.65,
+        sporeRate: 0.35,
+        paletteMode: 1,         // 1: UV Biolum, 2: Opaline, 3: Alien Acid, 4: Abyssal, 0: Natural
+        hueShift: 0.0,
+        psyIntensity: 1.35,
+        iridescence: 0.65,
+        fluorescence: 0.55,
+        lightAzimuth: 135 * Math.PI / 180,
+        lightElevation: 26 * Math.PI / 180,
+        reliefHeight: 1.15,
+        microDetail: 1.0,
+        sssStrength: 0.85,
+        parallaxStrength: 1.0,
+        macroOptics: 0.45,
+        grayscaleProof: false,
+        zoom: 1.0,
+        panX: 0.0,
+        panY: 0.0
+      };
+
+      // Species-specific constitutive traits (from the 5 engines in the PDF)
+      const SPECIES_TRAITS = [
+        // 0: AREOLE (Rhizocarpon geographicum - crustose)
+        {
+          name: 'AREOLE (Rhizocarpon)',
+          growthSpeed: 0.042,
+          lobeAnisotropy: 0.15,   // mostly isotropic circular/angular spread
+          branchFreq: 4.0,
+          crackSusceptibility: 1.45, // strong polygonal areole cracking
+          apotheciaRate: 1.15,
+          senescenceAge: 42.0,    // very long-lived crust
+          hypothallusWidth: 1.0   // strong black pioneering rim
+        },
+        // 1: LOBE (Lobaria pulmonaria / Xanthoria - foliose)
+        {
+          name: 'LOBE (Lobaria / Xanthoria)',
+          growthSpeed: 0.068,
+          lobeAnisotropy: 0.78,   // strong semi-autonomous petal lobes
+          branchFreq: 9.0,
+          crackSusceptibility: 0.45,
+          apotheciaRate: 1.35,
+          senescenceAge: 28.0,
+          hypothallusWidth: 0.25
+        },
+        // 2: THALLUS AXIS (Cladonia rangiferina / Ramalina - fruticose)
+        {
+          name: 'THALLUS AXIS (Fruticose)',
+          growthSpeed: 0.075,
+          lobeAnisotropy: 0.96,   // highly dendritic branching & reticulate lace
+          branchFreq: 18.0,
+          crackSusceptibility: 0.30,
+          apotheciaRate: 0.85,
+          senescenceAge: 25.0,
+          hypothallusWidth: 0.15
+        },
+        // 3: SQUAMULE / SORALIUM (Cladonia pyxidata - pixie cups & soredia powder)
+        {
+          name: 'SQUAMULE (Cladonia pyxidata)',
+          growthSpeed: 0.055,
+          lobeAnisotropy: 0.65,
+          branchFreq: 13.0,
+          crackSusceptibility: 0.75,
+          apotheciaRate: 1.65,    // abundant hollow scyphi cups & soredia granules
+          senescenceAge: 30.0,
+          hypothallusWidth: 0.35
+        },
+        // 4: HYDRA / UMBILICUS (Lasallia pustulata / Enchylium - gelatinous/umbilicate)
+        {
+          name: 'HYDRA / UMBILICUS (Lasallia)',
+          growthSpeed: 0.060,
+          lobeAnisotropy: 0.52,
+          branchFreq: 7.0,
+          crackSusceptibility: 0.35,
+          apotheciaRate: 0.95,
+          senescenceAge: 26.0,
+          hypothallusWidth: 0.20
+        }
+      ];
+
+      // Deterministic Fast Hash & Value Noise for CPU Simulation
+      function hash2(x, y) {
+        let h = Math.imul(x, 374761393) + Math.imul(y, 668265263);
+        h = (h ^ (h >> 13)) * 1274126177;
+        return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+      }
+
+      function smoothNoise(x, y) {
+        const ix = Math.floor(x);
+        const iy = Math.floor(y);
+        const fx = x - ix;
+        const fy = y - iy;
+        const ux = fx * fx * (3 - 2 * fx);
+        const uy = fy * fy * (3 - 2 * fy);
+        const a = hash2(ix, iy);
+        const b = hash2(ix + 1, iy);
+        const c = hash2(ix, iy + 1);
+        const d = hash2(ix + 1, iy + 1);
+        return a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy;
+      }
+
+      function fbmCPU(x, y) {
+        let v = 0.0;
+        let amp = 0.5;
+        for (let i = 0; i < 4; i++) {
+          v += amp * smoothNoise(x, y);
+          x = x * 2.03 + 13.7;
+          y = y * 2.03 + 7.1;
+          amp *= 0.5;
+        }
+        return v;
+      }
+
+      // Initialize Weathered Slate Substrate (stepped cleavage, hairline crack, moisture crevices)
+      function initRockSubstrate() {
+        for (let y = 0; y < GRID_SIZE; y++) {
+          for (let x = 0; x < GRID_SIZE; x++) {
+            const idx = y * GRID_SIZE + x;
+            const u = x / GRID_SIZE;
+            const v = y / GRID_SIZE;
+            const n1 = fbmCPU(u * 5.0, v * 5.0);
+            const n2 = fbmCPU(u * 18.0 + 4.2, v * 18.0 - 1.7);
+            // Stepped slate cleavage
+            const slateSteps = Math.floor((n1 * 0.7 + u * 0.25 - v * 0.15) * 7.0) / 7.0;
+            // Hairline diagonal crevice (accumulates moisture)
+            const crackDist = Math.abs((v - 0.52) + 0.38 * (u - 0.5) + 0.07 * Math.sin(u * 9.0) + 0.03 * n2);
+            const crevice = Math.exp(-crackDist * 55.0);
+            rockField[idx] = Math.max(0.0, Math.min(1.0, 0.5 * slateSteps + 0.35 * n2 - 0.35 * crevice + 0.2));
+            nutrientField[idx] = 1.0;
+            waterField[idx] = Math.min(1.0, params.ambientHydration + crevice * 0.25);
+          }
+        }
+      }
+
+      // Clear all lichens to bare weathered slate
+      function clearAllLichens() {
+        biomass.fill(0);
+        nextBiomass.fill(0);
+        ageField.fill(0);
+        stressField.fill(0);
+        crackField.fill(0);
+        necrosisField.fill(0);
+        fruitingField.fill(0);
+        speciesField.fill(0);
+        colonyIdField.fill(0);
+        nutrientField.fill(1.0);
+        simYears = 0.0;
+        syncTextures();
+      }
+
+      // Inoculate a new lichen thallus colony at normalized (u, v)
+      function inoculateColony(u, v, speciesIdx, radiusCells = 3.5) {
+        const cx = Math.floor(u * GRID_SIZE);
+        const cy = Math.floor(v * GRID_SIZE);
+        const colId = (nextColonyCounter++ % 250) + 1;
+        colonyOriginX[colId] = cx;
+        colonyOriginY[colId] = cy;
+        const rSq = radiusCells * radiusCells;
+
+        for (let dy = -Math.ceil(radiusCells); dy <= Math.ceil(radiusCells); dy++) {
+          for (let dx = -Math.ceil(radiusCells); dx <= Math.ceil(radiusCells); dx++) {
+            const x = cx + dx;
+            const y = cy + dy;
+            if (x < 1 || x >= GRID_SIZE - 1 || y < 1 || y >= GRID_SIZE - 1) continue;
+            const d2 = dx * dx + dy * dy;
+            if (d2 <= rSq) {
+              const idx = y * GRID_SIZE + x;
+              const falloff = Math.max(0.15, 1.0 - Math.sqrt(d2) / (radiusCells + 0.5));
+              biomass[idx] = Math.max(biomass[idx], 0.42 * falloff);
+              ageField[idx] = 0.25 * falloff;
+              stressField[idx] = 0.0;
+              crackField[idx] = 0.0;
+              necrosisField[idx] = 0.0;
+              fruitingField[idx] = 0.0;
+              speciesField[idx] = speciesIdx;
+              colonyIdField[idx] = colId;
+              nutrientField[idx] = Math.max(0.75, nutrientField[idx]);
+            }
+          }
+        }
+      }
+
+      // Seed a diverse multi-species slate ecosystem (matching the attachment description)
+      function seedDefaultSlateEcosystem() {
+        clearAllLichens();
+        // 1. Rhizocarpon geographicum (Areole crust)
+        inoculateColony(0.28, 0.34, 0, 4.0);
+        // 2. Lobaria / Xanthoria (Foliose lobe rosette)
+        inoculateColony(0.68, 0.36, 1, 4.5);
+        // 3. Cladonia / Ramalina (Fruticose branching axis)
+        inoculateColony(0.32, 0.70, 2, 4.0);
+        // 4. Cladonia pyxidata (Squamule + Pixie Cups)
+        inoculateColony(0.70, 0.72, 3, 4.2);
+        // 5. Lasallia pustulata (Umbilicate / Hydra jelly)
+        inoculateColony(0.50, 0.50, 4, 4.2);
+      }
+
+      // ============================================================================
+      // 2. COUPLED BIOLOGICAL PDE STEP (GROWTH -> MATURATION -> SENESCENCE -> DEATH)
+      // ============================================================================
+      function stepBiologicalSimulation() {
+        // Viscoelastic hydration lag: dS/dt = (H_eq - S) / tau
+        params.effectiveWetness += (params.ambientHydration - params.effectiveWetness) * 0.08;
+
+        // Non-monotonic photosynthesis water response curve [Paper Section 5.1]:
+        // Too dry = dormant; optimal hydration (~0.65-0.82) = max growth; waterlogged suprasaturation = slight depression
+        const w = params.effectiveWetness;
+        const hydrationActivity = w < 0.12 ? 0.02 : Math.pow(Math.sin(Math.min(1.0, (w - 0.08) / 0.92) * Math.PI * 0.82), 1.2);
+
+        simYears += 0.06 * hydrationActivity;
+
+        for (let y = 1; y < GRID_SIZE - 1; y++) {
+          const row = y * GRID_SIZE;
+          for (let x = 1; x < GRID_SIZE - 1; x++) {
+            const i = row + x;
+
+            const b = biomass[i];
+            const n = nutrientField[i];
+            const age = ageField[i];
+            const nec = necrosisField[i];
+            const sp = speciesField[i];
+            const col = colonyIdField[i];
+
+            // 5-point & 8-point neighborhood inspection
+            const iN = i - GRID_SIZE;
+            const iS = i + GRID_SIZE;
+            const iW = i - 1;
+            const iE = i + 1;
+            const iNW = iN - 1, iNE = iN + 1, iSW = iS - 1, iSE = iS + 1;
+
+            // Nutrient / Atmospheric CO2 Diffusion + slow mineral replenishment
+            const lapN = (nutrientField[iN] + nutrientField[iS] + nutrientField[iW] + nutrientField[iE] - 4.0 * n);
+            let newN = n + 0.16 * lapN + 0.0018 * (1.0 - n);
+
+            // Find strongest neighboring colony for front advancement
+            let maxNb = 0.0;
+            let bestSp = sp;
+            let bestCol = col;
+            let diffColonyContact = 0.0;
+
+            const neighbors = [iN, iS, iW, iE, iNW, iNE, iSW, iSE];
+            const weights = [1.0, 1.0, 1.0, 1.0, 0.707, 0.707, 0.707, 0.707];
+
+            let avgNb = 0.0;
+            for (let k = 0; k < 8; k++) {
+              const nbIdx = neighbors[k];
+              const nbB = biomass[nbIdx] * (1.0 - necrosisField[nbIdx] * 0.8);
+              avgNb += nbB * weights[k];
+              if (nbB > maxNb) {
+                maxNb = nbB;
+                bestSp = speciesField[nbIdx];
+                bestCol = colonyIdField[nbIdx];
+              }
+              if (col > 0 && colonyIdField[nbIdx] > 0 && colonyIdField[nbIdx] !== col) {
+                diffColonyContact = 1.0;
+              }
+            }
+            avgNb /= 6.828;
+
+            // CASE A: Uncolonized or recently eroded bare substrate — check advancing front
+            if (b < 0.05) {
+              if (maxNb > 0.16 && nec < 0.25) {
+                const traits = SPECIES_TRAITS[bestSp];
+                // Compute true polar angle & radial distance from colony origin for realistic bifurcating lobes
+                const ox = colonyOriginX[bestCol] || x;
+                const oy = colonyOriginY[bestCol] || y;
+                const dx = x - ox;
+                const dy = y - oy;
+                const distFromOrigin = Math.sqrt(dx * dx + dy * dy);
+                const theta = Math.atan2(dy, dx);
+
+                // Dichotomous tip splitting: number of radial lobe fingers doubles as radius expands
+                const warpTheta = theta + 0.35 * (smoothNoise(x * 0.08 + bestCol * 3.7, y * 0.08) - 0.5);
+                const primaryLobes = 0.5 + 0.5 * Math.cos(warpTheta * traits.branchFreq + bestCol * 1.9);
+                const bifurcatedLobes = 0.5 + 0.5 * Math.cos(warpTheta * traits.branchFreq * 2.0 - distFromOrigin * 0.18 + bestCol * 4.3);
+                const blendSplit = Math.min(1.0, distFromOrigin / 26.0);
+                const radialFinger = (1.0 - blendSplit) * primaryLobes + blendSplit * (0.45 * primaryLobes + 0.55 * bifurcatedLobes);
+
+                const fineFinger = smoothNoise(x * 0.22 + bestCol * 3.1, y * 0.22);
+                const lobeFactor = (1.0 - traits.lobeAnisotropy) + traits.lobeAnisotropy * Math.pow(radialFinger * 0.72 + fineFinger * 0.28, 1.85) * 2.45;
+
+                // Coffee-drop perimeter CO2 flux + rock micro-crevice channeling
+                const rockAffinity = 0.7 + 0.3 * (1.0 - rockField[i]);
+                const advanceProb = traits.growthSpeed * hydrationActivity * newN * lobeFactor * rockAffinity;
+
+                if (hash2(x + Math.floor(simYears * 120), y * 17 + Math.floor(simYears * 120)) < advanceProb * 1.5) {
+                  nextBiomass[i] = 0.14;
+                  speciesField[i] = bestSp;
+                  colonyIdField[i] = bestCol;
+                  ageField[i] = 0.05;
+                  stressField[i] = 0.0;
+                  crackField[i] = 0.0;
+                  fruitingField[i] = 0.0;
+                } else {
+                  nextBiomass[i] = b * 0.95;
+                }
+              } else {
+                // Bare rock recovery: necrotic debris slowly washes away so new spores can colonize
+                nextBiomass[i] = 0.0;
+                if (nec > 0.0) {
+                  necrosisField[i] = Math.max(0.0, nec - 0.008);
+                }
+              }
+              nextNutrient[i] = Math.min(1.0, newN + 0.003);
+              continue;
+            }
+
+            // CASE B: Living Thallus Tissue (Growth -> Maturation -> Fracture -> Fruiting -> Senescence -> Death)
+            const traits = SPECIES_TRAITS[sp];
+
+            // 1. Biomass thickening (slower in interior due to CO2 coffee-drop depletion and colony sutures)
+            const perimeterBoost = Math.max(0.15, 1.0 - avgNb * 0.85);
+            const suturePenalty = diffColonyContact > 0.5 ? 0.25 : 1.0;
+            const growthDelta = traits.growthSpeed * 0.45 * hydrationActivity * newN * (0.35 + 0.65 * perimeterBoost) * suturePenalty * (1.0 - nec);
+
+            let newB = Math.min(1.0, b + growthDelta * (1.0 - b * 0.82));
+
+            // Consume substrate & local carbon resource proportional to biomass
+            newN = Math.max(0.02, newN - 0.0075 * newB * hydrationActivity);
+
+            // 2. Biological Aging
+            const newAge = age + 0.085 * (0.35 + 0.65 * hydrationActivity);
+            ageField[i] = newAge;
+
+            // 3. Mechanical & Desiccation Strain -> Permanent Areole Fracture [Engine 1 & 2]
+            const drynessStress = (1.0 - w) * 0.015;
+            const thicknessStress = newB * 0.012 * traits.crackSusceptibility * params.fractureRate;
+            const sutureStress = diffColonyContact * 0.04;
+            stressField[i] += drynessStress + thicknessStress + sutureStress;
+
+            // Nucleate polygonal fissures when stress exceeds local threshold
+            const crackPattern = Math.abs(smoothNoise(x * 0.38 + col * 5.1, y * 0.38) - 0.5) * 2.0;
+            if (stressField[i] > 0.52 && crackPattern < 0.24 * traits.crackSusceptibility * params.fractureRate) {
+              crackField[i] = Math.min(1.0, crackField[i] + 0.045 * params.fractureRate);
+              stressField[i] *= 0.85; // stress relief along crack
+            }
+            // Colony boundary dark prothallus suture line
+            if (diffColonyContact > 0.5) {
+              crackField[i] = Math.min(1.0, crackField[i] + 0.06);
+            }
+
+            // 4. Reproductive Differentiation: Apothecia Discs, Pixie Cups & Soralia Granules
+            if (newAge > 4.5 && newB > 0.45 && nec < 0.45) {
+              const apothSeed = hash2(x * 3 + col * 17, y * 3 + col * 31);
+              const threshold = 1.0 - 0.14 * traits.apotheciaRate * params.fruitingRate;
+              if (apothSeed > threshold) {
+                fruitingField[i] = Math.min(1.0, fruitingField[i] + 0.022 * params.fruitingRate);
+              }
+            }
+
+            // 5. Senescence, Bleaching, Necrosis & Central Flaking Off (Full Death Cycle)
+            // Triggered when tissue becomes ancient OR starves of nutrients in the dense colony interior
+            const starvation = Math.max(0.0, 0.28 - newN) * 2.5;
+            const ageExcess = Math.max(0.0, newAge - traits.senescenceAge / Math.max(0.25, params.senescenceRate));
+
+            if ((ageExcess > 0.0 || starvation > 0.15) && params.senescenceRate > 0.01) {
+              const rotNoise = smoothNoise(x * 0.22 + 19.3, y * 0.22 + 41.7);
+              const necrosisRate = (0.0035 * ageExcess + 0.008 * starvation) * params.senescenceRate * (0.6 + 0.8 * rotNoise);
+              necrosisField[i] = Math.min(1.0, nec + necrosisRate);
+            }
+
+            // Once necrosis approaches 1.0, the dead brittle thallus crumbles & flakes off the slate,
+            // exposing weathered rock for ecological succession (fairy ring formation)
+            if (necrosisField[i] > 0.82) {
+              newB -= 0.035 * params.senescenceRate;
+              fruitingField[i] *= 0.92;
+              if (newB <= 0.06) {
+                newB = 0.0;
+                ageField[i] = 0.0;
+                stressField[i] = 0.0;
+                crackField[i] = 0.0;
+                fruitingField[i] = 0.0;
+                colonyIdField[i] = 0;
+                // Leave a temporary weathered mineral scar that rapidly recovers
+                necrosisField[i] = 0.22;
+                newN = Math.min(1.0, newN + 0.35);
+              }
+            }
+
+            nextBiomass[i] = Math.max(0.0, newB);
+            nextNutrient[i] = newN;
+          }
+        }
+
+        // Copy double-buffered fields
+        biomass.set(nextBiomass);
+        nutrientField.set(nextNutrient);
+
+        // 6. Spontaneous Windborne Spore Dispersal from Mature Apothecia onto Bare Rock
+        if (params.sporeRate > 0.01 && Math.random() < params.sporeRate * 0.08 * hydrationActivity) {
+          const rx = 8 + Math.floor(Math.random() * (GRID_SIZE - 16));
+          const ry = 8 + Math.floor(Math.random() * (GRID_SIZE - 16));
+          const rIdx = ry * GRID_SIZE + rx;
+          if (biomass[rIdx] < 0.02 && necrosisField[rIdx] < 0.15 && nutrientField[rIdx] > 0.65) {
+            const randomSpecies = Math.random() < 0.6 ? activeSpecies : Math.floor(Math.random() * 5);
+            inoculateColony(rx / GRID_SIZE, ry / GRID_SIZE, randomSpecies, 2.5);
+          }
+        }
+      }
+
+      // Pack Float32 biological fields into GPU textures
+      function syncTextures() {
+        let activeCount = 0;
+        let necroticCount = 0;
+
+        for (let i = 0; i < NUM_CELLS; i++) {
+          const j = i * 4;
+          const b = biomass[i];
+          const nec = necrosisField[i];
+          if (b > 0.08) activeCount++;
+          if (nec > 0.25 && b > 0.05) necroticCount++;
+
+          bioTexData[j]     = Math.min(255, Math.max(0, Math.floor(b * 255)));
+          bioTexData[j + 1] = Math.min(255, Math.max(0, Math.floor(Math.min(1.0, ageField[i] / 65.0) * 255)));
+          bioTexData[j + 2] = Math.min(255, Math.max(0, Math.floor(crackField[i] * 255)));
+          bioTexData[j + 3] = Math.min(255, Math.max(0, Math.floor(nec * 255)));
+
+          // Encode radial polar angle from colony origin into auxTex.b so shader can orient radial lobes, pleats & branches!
+          const colId = colonyIdField[i];
+          let radialAngleByte = 128;
+          if (colId > 0) {
+            const y = Math.floor(i / GRID_SIZE);
+            const x = i - y * GRID_SIZE;
+            const angle = Math.atan2(y - colonyOriginY[colId], x - colonyOriginX[colId]); // -PI..PI
+            radialAngleByte = Math.min(255, Math.max(0, Math.floor(((angle / Math.PI) * 0.5 + 0.5) * 255)));
+          }
+
+          auxTexData[j]     = Math.min(255, Math.floor((speciesField[i] / 4.0) * 255));
+          auxTexData[j + 1] = Math.min(255, Math.max(0, Math.floor(fruitingField[i] * 255)));
+          auxTexData[j + 2] = radialAngleByte;
+          auxTexData[j + 3] = (colId * 37) & 255;
+        }
+
+        // Update HUD telemetry
+        const covPct = ((activeCount / NUM_CELLS) * 100).toFixed(1);
+        const necPct = activeCount > 0 ? ((necroticCount / activeCount) * 100).toFixed(1) : '0.0';
+        document.getElementById('yearReadout').textContent = `Year ${simYears.toFixed(1)}`;
+        document.getElementById('biomassReadout').textContent = `${covPct}%`;
+        document.getElementById('necrosisReadout').textContent = `${necPct}%`;
+        document.getElementById('hydrationHud').textContent = `${Math.round(params.effectiveWetness * 100)}%`;
+
+        let phaseLabel = 'Colonization';
+        if (simYears > 80 || parseFloat(necPct) > 22) phaseLabel = 'Senescence & Succession';
+        else if (simYears > 30) phaseLabel = 'Mature Fruiting & Fracture';
+        else if (simYears > 10) phaseLabel = 'Lobe & Areole Expansion';
+        document.getElementById('phaseReadout').textContent = `Phase: ${phaseLabel}`;
+      }
+
+      // ============================================================================
+      // 3. WEBGL2 PHOTOREALISTIC 4-LAYER TISSUE & MICROFACET SHADER
+      // ============================================================================
+      const canvas = document.getElementById('lichenCanvas');
+      const gl = canvas.getContext('webgl2', { preserveDrawingBuffer: true, antialias: true });
+
+      const vsSource = `#version 300 es
+        in vec2 aPosition;
+        out vec2 vUv;
+        void main() {
+          vUv = aPosition * 0.5 + 0.5;
+          gl_Position = vec4(aPosition, 0.0, 1.0);
+        }
+      `;
+
+      const fsSource = `#version 300 es
+        precision highp float;
+
+        in vec2 vUv;
+        out vec4 fragColor;
+
+        uniform sampler2D uBioTex; // R: biomass, G: normAge, B: crack, A: necrosis
+        uniform sampler2D uAuxTex; // R: species, G: fruiting, B: radialAngle, A: colonyHash
+
+        uniform float uTime;
+        uniform float uWetness;
+        uniform int uPaletteMode;
+        uniform float uHueShift;
+        uniform float uPsyIntensity;
+        uniform float uIridescence;
+        uniform float uFluorescence;
+        uniform vec3 uLightDir;
+        uniform float uReliefHeight;
+        uniform float uMicroDetail;
+        uniform float uSssStrength;
+        uniform float uParallaxStrength;
+        uniform float uMacroOptics;
+        uniform bool uGrayscaleProof;
+        uniform float uZoom;
+        uniform vec2 uPan;
+
+        // ------------------------------------------------------------------------
+        // Procedural Hashes, Worley Cellular, Ridge Noise & Filaments
+        // ------------------------------------------------------------------------
+        vec2 hash22(vec2 p) {
+          p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+          return fract(sin(p) * 43758.5453123);
+        }
+
+        float hash21(vec2 p) {
+          p = fract(p * vec2(123.34, 456.21));
+          p += dot(p, p + 45.32);
+          return fract(p.x * p.y);
+        }
+
+        float noise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0); // C2 quintic interpolation for silky macro normals
+          return mix(
+            mix(hash21(i + vec2(0.0, 0.0)), hash21(i + vec2(1.0, 0.0)), u.x),
+            mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), u.x),
+            u.y
+          );
+        }
+
+        float fbm(vec2 p) {
+          float v = 0.0;
+          float a = 0.5;
+          mat2 rot = mat2(0.8, 0.6, -0.6, 0.8);
+          for (int i = 0; i < 5; i++) {
+            v += a * noise(p);
+            p = rot * p * 2.04 + vec2(17.3, 9.2);
+            a *= 0.5;
+          }
+          return v;
+        }
+
+        // Sharp organic ridge fBm for Lobaria foveolate networks, rocky cleavage & hyphal bundles
+        float ridgedFbm(vec2 p) {
+          float v = 0.0;
+          float a = 0.5;
+          float weight = 1.0;
+          mat2 rot = mat2(0.8, 0.6, -0.6, 0.8);
+          for (int i = 0; i < 4; i++) {
+            float n = 1.0 - abs(noise(p) * 2.0 - 1.0);
+            n = n * n * weight;
+            weight = clamp(n * 1.8, 0.0, 1.0);
+            v += n * a;
+            p = rot * p * 2.12 + vec2(11.7, 23.1);
+            a *= 0.5;
+          }
+          return v;
+        }
+
+        // Returns vec4(F1, F2, cellId, edgeDist) for polygonal areoles, squamules & apothecial cups
+        vec4 worley(vec2 p, float jitter) {
+          vec2 n = floor(p);
+          vec2 f = fract(p);
+          float f1 = 8.0;
+          float f2 = 8.0;
+          vec2 bestCell = vec2(0.0);
+          vec2 toCenter1 = vec2(0.0);
+
+          for (int j = -1; j <= 1; j++) {
+            for (int i = -1; i <= 1; i++) {
+              vec2 g = vec2(float(i), float(j));
+              vec2 o = mix(vec2(0.5), hash22(n + g), jitter);
+              vec2 r = g - f + o;
+              float d = dot(r, r);
+              if (d < f1) {
+                f2 = f1;
+                f1 = d;
+                bestCell = n + g;
+                toCenter1 = r;
+              } else if (d < f2) {
+                f2 = d;
+              }
+            }
+          }
+          float d1 = sqrt(f1);
+          float d2 = sqrt(f2);
+          return vec4(d1, d2, hash21(bestCell), d2 - d1);
+        }
+
+        // Smooth 9-tap Gaussian-filtered biological texture lookup with sub-texel organic domain warp
+        // Eliminates any 256x256 grid stair-stepping and produces razor-sharp macro-photographic contours
+        vec4 sampleSmoothBio(vec2 uv, out vec2 bioGrad) {
+          vec2 texel = vec2(1.0 / 256.0);
+          // High-frequency organic edge contour perturbation so colony margins have natural micro-lobules
+          vec2 microWarp = vec2(
+            fbm(uv * 52.0 + vec2(2.1, 8.7)) - 0.5,
+            fbm(uv * 52.0 + vec2(14.3, 3.9)) - 0.5
+          ) * 0.0055;
+          vec2 wUv = clamp(uv + microWarp, 0.002, 0.998);
+
+          vec4 c  = texture(uBioTex, wUv);
+          vec4 n  = texture(uBioTex, wUv + vec2(0.0, texel.y));
+          vec4 s  = texture(uBioTex, wUv - vec2(0.0, texel.y));
+          vec4 e  = texture(uBioTex, wUv + vec2(texel.x, 0.0));
+          vec4 w  = texture(uBioTex, wUv - vec2(texel.x, 0.0));
+          vec4 ne = texture(uBioTex, wUv + texel);
+          vec4 nw = texture(uBioTex, wUv + vec2(-texel.x, texel.y));
+          vec4 se = texture(uBioTex, wUv + vec2(texel.x, -texel.y));
+          vec4 sw = texture(uBioTex, wUv - texel);
+
+          // Inward-pointing biomass gradient (points from outer thallus margin toward older interior)
+          bioGrad = vec2((e.r - w.r) * 0.5 + (ne.r - nw.r + se.r - sw.r) * 0.25,
+                         (n.r - s.r) * 0.5 + (ne.r - se.r + nw.r - sw.r) * 0.25);
+
+          return c * 0.25 + (n + s + e + w) * 0.125 + (ne + nw + se + sw) * 0.0625;
+        }
+
+        // Rotate hue in linear RGB
+        vec3 hueRotate(vec3 col, float angleRad) {
+          const vec3 k = vec3(0.57735, 0.57735, 0.57735);
+          float cosAngle = cos(angleRad);
+          return col * cosAngle + cross(k, col) * sin(angleRad) + k * dot(k, col) * (1.0 - cosAngle);
+        }
+
+        // Spectral Thin-Film Interference [Paper Section 6.4]
+        vec3 thinFilmIridescence(float cosTheta, float dNm, float shift) {
+          float phase = 6.28318 * (dNm * cosTheta * 0.012 + shift);
+          return 0.5 + 0.5 * cos(phase + vec3(0.0, 2.094, 4.188));
+        }
+
+        // ------------------------------------------------------------------------
+        // Weathered Slate Rock Substrate Height & Mineral Micro-Crystals
+        // ------------------------------------------------------------------------
+        float getRockHeight(vec2 uv) {
+          float n1 = fbm(uv * 6.0);
+          float n2 = ridgedFbm(uv * 19.0 + 3.7);
+          float n3 = noise(uv * 110.0);
+          float rawStep = (n1 * 0.65 + uv.x * 0.25 - uv.y * 0.15) * 7.5;
+          float cleavage = floor(rawStep) / 7.5;
+          float stepEdge = smoothstep(0.75, 0.98, fract(rawStep));
+          float mainCleavage = mix(cleavage, cleavage + 0.133, stepEdge * 0.55);
+
+          // Embedded white quartz vein & diagonal hairline moisture crevice
+          float quartzVein = exp(-abs((uv.y - 0.68) - 0.52 * (uv.x - 0.35) + 0.05 * n1) * 55.0);
+          float crackDist = abs((uv.y - 0.52) + 0.38 * (uv.x - 0.5) + 0.07 * sin(uv.x * 9.0) + 0.03 * n2);
+          float crevice = exp(-crackDist * 75.0);
+          float microPits = pow(noise(uv * 240.0), 3.0) * 0.035;
+
+          return (mainCleavage * 0.26 + n2 * 0.11 + quartzVein * 0.045 + n3 * 0.025 - crevice * 0.24 - microPits);
+        }
+
+        // ------------------------------------------------------------------------
+        // Multiscale Anatomical Lichen Height Field (5 Upgraded Growth Engines)
+        // ------------------------------------------------------------------------
+        struct TissueSample {
+          float totalHeight;
+          float thallusHeight;
+          float rockHeight;
+          float biomass;
+          float age;
+          float crack;
+          float necrosis;
+          float species;
+          float fruiting;
+          float apotheciaCup;
+          float apotheciaRim;
+          float sorediaGranule;
+          float medullaExposure;
+          float photobiontGlow;
+          float hypothallus;
+          float rhizineFringe;
+          float isidiaTips;
+          float dewDrop;
+          float colonyHash;
+        };
+
+        TissueSample evaluateTissue(vec2 uv) {
+          TissueSample ts;
+          vec2 bioGrad;
+          vec4 bio = sampleSmoothBio(uv, bioGrad);
+          // Snap species/colony lookup to nearest texel to avoid blending integer species IDs across boundaries
+          vec4 auxNearest = texture(uAuxTex, uv);
+
+          ts.biomass    = bio.r;
+          ts.age        = bio.g;
+          ts.crack      = bio.b;
+          ts.necrosis   = bio.a;
+          ts.species    = floor(auxNearest.r * 4.0 + 0.5);
+          ts.fruiting   = bio.r > 0.2 ? auxNearest.g : 0.0;
+          ts.colonyHash = auxNearest.a;
+          ts.rockHeight = getRockHeight(uv);
+
+          ts.apotheciaCup    = 0.0;
+          ts.apotheciaRim    = 0.0;
+          ts.sorediaGranule  = 0.0;
+          ts.medullaExposure = 0.0;
+          ts.photobiontGlow  = 0.0;
+          ts.hypothallus     = 0.0;
+          ts.rhizineFringe   = 0.0;
+          ts.isidiaTips      = 0.0;
+          ts.dewDrop         = 0.0;
+
+          if (ts.biomass < 0.012) {
+            ts.thallusHeight = 0.0;
+            ts.totalHeight = ts.rockHeight;
+            return ts;
+          }
+
+          // Reconstruct radial angle from colony center + inward gradient for true polar lobe geometry
+          float radialAngle = (auxNearest.b * 2.0 - 1.0) * 3.14159265;
+          vec2 radialDir = vec2(cos(radialAngle), sin(radialAngle));
+
+          // Multi-scale domain warping (prevents geometric repetition and creates true organic tissue flow)
+          vec2 warp1 = vec2(fbm(uv * 22.0 + 1.3), fbm(uv * 22.0 + 9.4)) - 0.5;
+          vec2 warp2 = vec2(noise(uv * 68.0 + warp1 * 2.2), noise(uv * 68.0 - warp1 * 2.2)) - 0.5;
+          vec2 mUv = uv + warp1 * 0.017 + warp2 * 0.0045;
+
+          // Suture line where two distinct colonies collide (creates dark raised prothallus ridge & cleft)
+          vec2 texel = vec2(1.0 / 256.0);
+          float colDiff = abs(ts.colonyHash - texture(uAuxTex, uv + texel).a) +
+                          abs(ts.colonyHash - texture(uAuxTex, uv - texel).a);
+          float sutureCleft = clamp(colDiff * 6.0, 0.0, 1.0);
+
+          // 1. Pioneering Fungal Hypothallus & Root-Like Rhizine Fringe at Outer Margin
+          float outerZone = smoothstep(0.012, 0.14, ts.biomass) * (1.0 - smoothstep(0.14, 0.34, ts.biomass));
+          float hyphalStrands = 0.5 + 0.5 * sin(radialAngle * 96.0 + fbm(mUv * 135.0) * 9.0);
+
+          float morphoRelief = 0.0;
+          float cupSuppression = 1.0;
+
+          // ======================================================================
+          // ENGINE 1: AREOLE — Rhizocarpon geographicum (Crustose Mosaic)
+          // ======================================================================
+          if (ts.species < 0.5) {
+            // Broad black fimbriate prothallus mat leading the colony edge and filling sutures
+            ts.hypothallus = clamp(outerZone * (0.65 + 0.35 * hyphalStrands) * 1.45 + sutureCleft * 0.9, 0.0, 1.0);
+
+            // Multi-scale angular Worley polygon tessellation for genuine cracked rock-crust areoles
+            vec4 wPrimary = worley(mUv * 50.0 + warp1 * 1.5, 0.92);
+            vec4 wSub     = worley(mUv * 105.0 - warp1 * 2.1, 0.85);
+
+            // Fissure width widens with mechanical stress (ts.crack) and age
+            float cleftWidth = 0.058 + 0.15 * ts.crack + 0.06 * ts.age;
+            float primaryCleft = smoothstep(0.012, cleftWidth, wPrimary.w);
+            // Older thick areoles subdivide into smaller secondary polygons
+            float subCleft = mix(1.0, smoothstep(0.01, cleftWidth * 0.78, wSub.w), smoothstep(0.22, 0.72, ts.age));
+            float areoleMask = primaryCleft * subCleft * (1.0 - sutureCleft * 0.92);
+
+            // Steep beveled flat-topped cushion profile with individual cell height & micro-tilt
+            float cushionProfile = pow(areoleMask, 0.28) * (0.70 + 0.38 * wPrimary.z);
+            // Microscopic verrucose warts & cortical granules on top of each areole
+            float verrucae = ridgedFbm(mUv * 175.0) * 0.12 * areoleMask;
+
+            // Internal green photobiont layer subtly glowing beneath semi-translucent wet upper cortex
+            ts.photobiontGlow = areoleMask * smoothstep(0.2, 0.8, cushionProfile) * uWetness;
+
+            // Deep black prothallus exposed inside the cracks between areoles
+            ts.hypothallus = max(ts.hypothallus, (1.0 - areoleMask) * smoothstep(0.10, 0.32, ts.biomass));
+            morphoRelief = cushionProfile * (0.54 + 0.26 * ts.age) + verrucae;
+
+            // Lecideine black angular apothecia wedged between/inside mature areoles
+            if (ts.fruiting > 0.14 && wPrimary.z < 0.34 * ts.fruiting) {
+              float apMask = smoothstep(0.33, 0.08, wPrimary.x);
+              float apRim  = smoothstep(0.38, 0.22, wPrimary.x) * (1.0 - apMask);
+              // Radial ascus striations inside the black lecideine disc
+              float hymeniumRidges = 0.02 * sin(wPrimary.x * 90.0 + wPrimary.z * 20.0) * apMask;
+              ts.apotheciaCup = apMask * areoleMask;
+              ts.apotheciaRim = apRim * areoleMask;
+              morphoRelief = mix(morphoRelief, 0.45 + apRim * 0.14 - apMask * 0.09 + hymeniumRidges, apMask + apRim);
+              cupSuppression = 0.0;
+            }
+          }
+
+          // ======================================================================
+          // ENGINE 2: LOBE — Lobaria pulmonaria / Xanthoria / Parmelia (Foliose)
+          // ======================================================================
+          else if (ts.species < 1.5) {
+            // Radiating bifurcating lobe channels + imbricate (shingle-overlapping) terraced sheets!
+            float lobeFreq = 22.0;
+            float angularWave = sin(radialAngle * lobeFreq + fbm(mUv * 18.0) * 4.8);
+            float secondaryWave = sin(radialAngle * lobeFreq * 2.0 - ts.biomass * 4.0 + fbm(mUv * 35.0) * 3.5);
+            float combinedWave = mix(angularWave, secondaryWave, smoothstep(0.2, 0.7, 1.0 - ts.biomass));
+            float lobeSinus = smoothstep(-0.82, -0.10, combinedWave);
+
+            // Project position onto radial growth axis to create overlapping shingle tiers
+            float radialCoord = dot(uv - 0.5, radialDir) * 30.0 + fbm(mUv * 24.0) * 1.55;
+            float shingleFract = fract(radialCoord);
+            // Sawtooth ramp with steep undercut drop-off at the leading edge of each overlapping lobe tier
+            float shingleShelf = smoothstep(0.0, 0.13, shingleFract) * (1.0 - 0.45 * shingleFract);
+            float lobeTipLip = smoothstep(0.0, 0.16, shingleFract) * (1.0 - smoothstep(0.16, 0.36, shingleFract));
+
+            // Pale lower cortex / raised lip rim visible right at the curled leading edge of each shingle
+            ts.medullaExposure = lobeTipLip * (0.35 + 0.35 * (1.0 - uWetness)) * lobeSinus;
+
+            // Dark root-like rhizines & marginal cilia peeking out from underneath the outer margin & lobe sinuses
+            ts.rhizineFringe = outerZone * (1.0 - lobeSinus * 0.65) * step(0.32, hyphalStrands);
+            ts.hypothallus = ts.rhizineFringe * 0.78 + sutureCleft * 0.65;
+
+            // Reticulate foveolate honeycomb ridges & water-holding depressions (Lobaria pulmonaria)
+            float netRidges = ridgedFbm(mUv * 42.0 + warp1 * 1.9);
+            float fineRetic = ridgedFbm(mUv * 92.0);
+            float foveolateRelief = pow(netRidges, 1.55) * 0.36 + fineRetic * 0.09;
+
+            // Internal algal photobiont layer showing through wet depressed faveolae pockets
+            ts.photobiontGlow = (1.0 - netRidges) * lobeSinus * uWetness;
+
+            // Desiccation curling: free margins and lobe tips curl sharply upward when dry [PubMed 16804701]
+            float edgeMargin = smoothstep(0.08, 0.32, ts.biomass) * (1.0 - smoothstep(0.32, 0.68, ts.biomass));
+            float dryCurl = (1.0 - uWetness) * (edgeMargin * 0.40 + lobeTipLip * 0.25);
+
+            morphoRelief = (0.32 + shingleShelf * 0.30 + foveolateRelief + dryCurl) * (0.30 + 0.70 * lobeSinus);
+
+            // Soralia & pseudocyphellae: pale powdery eruptions splitting open along mature ridge crests
+            float ridgeCrest = smoothstep(0.60, 0.85, netRidges) * smoothstep(0.20, 0.62, ts.age);
+            float sorediaClusters = pow(noise(mUv * 230.0), 1.65);
+            ts.sorediaGranule = clamp(ridgeCrest * sorediaClusters * 1.45, 0.0, 1.0);
+            morphoRelief += ts.sorediaGranule * 0.085;
+          }
+
+          // ======================================================================
+          // ENGINE 3: THALLUS AXIS — Cladonia rangiferina / Ramalina (Fruticose)
+          // ======================================================================
+          else if (ts.species < 2.5) {
+            // Three-tier 3D anastomosing cylindrical dendrite branches + Ramalina perforated lace holes
+            vec2 orthoDir = vec2(-radialDir.y, radialDir.x);
+            vec2 branchUv = vec2(dot(mUv, radialDir) * 34.0, dot(mUv, orthoDir) * 52.0);
+
+            // Tier 1: Upper canopy cylindrical branches
+            vec4 wCanopy = worley(branchUv + warp1 * 2.6, 0.92);
+            float tubeDist1 = abs(wCanopy.w - 0.06);
+            float radius1 = 0.22 * (0.55 + 0.45 * ts.biomass);
+            float normR1 = clamp(tubeDist1 / radius1, 0.0, 1.0);
+            float canopyTube = sqrt(max(0.0, 1.0 - normR1 * normR1));
+
+            // Tier 2: Mid-level crossing sub-branches (visible through canopy openings)
+            vec4 wUnder = worley(branchUv * 1.85 + vec2(7.3, 13.1), 0.90);
+            float tubeDist2 = abs(wUnder.w - 0.045);
+            float radius2 = 0.20;
+            float normR2 = clamp(tubeDist2 / radius2, 0.0, 1.0);
+            float underTube = sqrt(max(0.0, 1.0 - normR2 * normR2)) * 0.62;
+
+            // Tier 3: Fine tertiary branchlets & fibrils
+            vec4 wFine = worley(branchUv * 3.4 - vec2(4.1, 9.8), 0.88);
+            float normR3 = clamp(abs(wFine.w - 0.03) / 0.16, 0.0, 1.0);
+            float fineTube = sqrt(max(0.0, 1.0 - normR3 * normR3)) * 0.36;
+
+            // Ramalina menziesii developmental perforations (fenestrations between strands)
+            float combinedTubes = max(canopyTube * 0.94, max(underTube, fineTube));
+            float webFibrils = ridgedFbm(mUv * 150.0) * 0.13 * smoothstep(0.05, 0.3, combinedTubes);
+
+            // Dark substrate & recessed shadows visible inside deep branch fenestrations
+            float holeMask = 1.0 - smoothstep(0.0, 0.18, combinedTubes);
+            ts.hypothallus = holeMask * 0.78;
+            ts.photobiontGlow = canopyTube * uWetness * 0.65;
+
+            // Erect dichotomous branch tips / dark pycnidia nodules on canopy forks
+            float forkNodes = smoothstep(0.14, 0.02, wCanopy.x) * canopyTube;
+            ts.isidiaTips = forkNodes * ts.age;
+
+            morphoRelief = combinedTubes * (0.68 + 0.42 * ts.age) + webFibrils + forkNodes * 0.20;
+            cupSuppression = 0.30;
+          }
+
+          // ======================================================================
+          // ENGINE 4: SQUAMULE / SORALIUM — Cladonia pyxidata (Scales & Pixie Cups)
+          // ======================================================================
+          else if (ts.species < 3.5) {
+            // Basal layer of overlapping, scalloped miniature leaf-like squamules
+            vec4 sqCell = worley(mUv * 62.0 + warp1 * 1.9, 0.86);
+            vec2 cellLocal = fract(mUv * 62.0 + warp1 * 1.9) - 0.5;
+            float scaleRamp = clamp(0.5 + dot(cellLocal, radialDir) * 1.15, 0.1, 1.0);
+            // Crenulate (scalloped) margin on each squamule leaf scale
+            float scaleScallop = 0.03 * sin(atan(cellLocal.y, cellLocal.x) * 9.0 + sqCell.z * 20.0);
+            float scaleEdge = smoothstep(0.02, 0.22 + scaleScallop, sqCell.w);
+            float squamuleHeight = scaleEdge * scaleRamp * (0.38 + 0.22 * sqCell.z);
+
+            // Chalky white underside peeking out at lifted scale tips
+            float liftedTip = scaleEdge * smoothstep(0.66, 0.94, scaleRamp);
+            ts.medullaExposure = liftedTip * 0.42;
+            ts.photobiontGlow = scaleEdge * (1.0 - liftedTip) * uWetness * 0.75;
+
+            // Granular farinose soredia powder accumulating in scale crevices and cup walls
+            float granuleNoise = pow(noise(mUv * 260.0), 1.75);
+            ts.sorediaGranule = clamp(granuleNoise * (0.45 + 0.55 * ts.fruiting), 0.0, 1.0);
+
+            morphoRelief = squamuleHeight + ts.sorediaGranule * 0.16;
+
+            // ERECT HOLLOW PIXIE CUPS (Scyphi / Podetia) with marginal coccifera fruiting nodules!
+            vec4 cupGrid = worley(mUv * 22.0 + 5.3, 0.78);
+            float maxCupR = 0.35 * clamp(ts.fruiting * 1.35 + ts.age * 0.3, 0.0, 1.0);
+            if (ts.fruiting > 0.10 && cupGrid.z > 0.24 && cupGrid.x < maxCupR) {
+              float nr = cupGrid.x / max(0.001, maxCupR);
+              // Flared goblet outer stalk wall rising steeply up to nr = 0.76, then plunging into a deep hollow funnel
+              float outerGoblet = smoothstep(1.0, 0.68, nr);
+              float innerFunnel = 1.0 - smoothstep(0.0, 0.68, nr);
+              float rimRing     = smoothstep(0.50, 0.74, nr) * (1.0 - smoothstep(0.74, 0.95, nr));
+
+              // Crown of bulbous fruiting nodules (British Soldier / C. pyxidata apothecial balls) studded around rim!
+              float crownAngle = atan(cupGrid.y - cupGrid.x, cupGrid.w) * 11.0 + cupGrid.z * 25.0;
+              float rimNodules = rimRing * pow(0.5 + 0.5 * sin(noise(mUv * 140.0) * 12.0 + crownAngle), 2.0);
+
+              float gobletHeight = outerGoblet * 0.64 + rimRing * 0.28 + rimNodules * 0.24 - innerFunnel * 0.45;
+              // Cortical warts & soredia granules coating the exterior and interior of the goblet
+              gobletHeight += ridgedFbm(mUv * 185.0) * 0.08 * outerGoblet;
+
+              morphoRelief = max(morphoRelief * 0.35, gobletHeight);
+              ts.apotheciaRim = clamp(rimRing * 0.75 + innerFunnel * 0.5, 0.0, 1.0);
+              ts.apotheciaCup = clamp(rimNodules * 1.4, 0.0, 1.0);
+              cupSuppression = 0.0;
+            }
+          }
+
+          // ======================================================================
+          // ENGINE 5: HYDRA / UMBILICUS — Lasallia pustulata / Enchylium (Blistered/Jelly)
+          // ======================================================================
+          else {
+            // Central-holdfast radial tension pleats + bullate blister pustules
+            float radialPleats = sin(radialAngle * 16.0 + fbm(mUv * 14.0) * 5.2) * 0.15;
+            vec4 pustuleCell = worley(mUv * 32.0 + warp1 * 1.5, 0.85);
+            vec4 smallPustule = worley(mUv * 68.0 - warp1, 0.85);
+
+            // Smooth convex blister domes with slight umbilical central dimples on the largest blisters
+            float dome1 = smoothstep(0.46, 0.04, pustuleCell.x);
+            float domeDimple = smoothstep(0.12, 0.0, pustuleCell.x) * 0.18 * ts.age;
+            float dome2 = smoothstep(0.42, 0.05, smallPustule.x) * 0.45;
+
+            // Viscoelastic hydration response: swells into thick turgid translucent domes when wet;
+            // shrinks into sharp, wrinkled coriaceous folds when dry
+            float swelling = mix(0.46, 1.42, uWetness);
+            float dryShrinkFolds = (1.0 - uWetness) * ridgedFbm(mUv * 78.0) * 0.30;
+
+            ts.photobiontGlow = (dome1 + dome2 * 0.5) * uWetness;
+
+            // Coral-like black isidia tufts erupting on older pustule crests (Lasallia pustulata)
+            float isidiaMask = dome1 * smoothstep(0.32, 0.72, ts.age) * pow(noise(mUv * 280.0), 2.1);
+            ts.isidiaTips = clamp(isidiaMask * 1.65, 0.0, 1.0);
+
+            morphoRelief = (0.30 + (dome1 * 0.50 - domeDimple + dome2 * 0.22 + radialPleats) * swelling) + dryShrinkFolds + ts.isidiaTips * 0.15;
+          }
+
+          // 3. Shared Lecanorine Apothecia (Raised Crenulate Thalline Rim + Concave Spore Hymenium Disc)
+          if (cupSuppression > 0.05 && ts.fruiting > 0.14) {
+            vec4 apCell = worley(mUv * 28.0 + 11.3, 0.82);
+            float cupRadius = (0.18 + 0.15 * apCell.z) * clamp(ts.fruiting * 1.35, 0.0, 1.0) * cupSuppression;
+            float r = apCell.x;
+
+            if (apCell.z > 0.27 && r < cupRadius) {
+              float normR = r / max(0.001, cupRadius);
+              // Crenulate (scalloped) toroidal exciple lip + smooth concave spore-bearing hymenium disc
+              float scallop = 1.0 + 0.20 * sin(noise(mUv * 165.0) * 19.0);
+              float rimMask = smoothstep(0.48, 0.78, normR) * (1.0 - smoothstep(0.82, 1.0, normR)) * scallop;
+              float discMask = (1.0 - smoothstep(0.0, 0.65, normR));
+              float bowlDepth = sqrt(max(0.0, 1.0 - (normR / 0.65) * (normR / 0.65))) * 0.19;
+
+              morphoRelief += rimMask * 0.38 - discMask * bowlDepth;
+              ts.apotheciaCup = clamp(discMask, 0.0, 1.0);
+              ts.apotheciaRim = clamp(rimMask, 0.0, 1.0);
+            }
+          }
+
+          // 4. Microscopic Condensing Dewdrops / Rain Beads when Hydrated & Macro Optics Active
+          if (uWetness > 0.74 && uMacroOptics > 0.05 && ts.necrosis < 0.3) {
+            vec4 dewCell = worley(mUv * 95.0 + vec2(3.7, 8.1), 0.92);
+            float dewProb = smoothstep(0.74, 0.98, uWetness) * clamp(uMacroOptics, 0.0, 1.0);
+            if (dewCell.z < 0.18 * dewProb && dewCell.x < 0.14) {
+              float dr = dewCell.x / 0.14;
+              float sphereCap = sqrt(max(0.0, 1.0 - dr * dr));
+              ts.dewDrop = sphereCap;
+              morphoRelief += sphereCap * 0.14;
+            }
+          }
+
+          // 5. Cortical Cell Wall Micro-Relief (SEM / AFM honeycomb fungal hyphae packing)
+          float cellMicro = worley(mUv * 310.0, 0.75).w;
+          float microCortex = (cellMicro - 0.35) * 0.055 * uMicroDetail;
+
+          // 6. Senescence, Cortical Peeling, Fibrous Medulla Exposure & Necrotic Crumbling
+          if (ts.necrosis > 0.05) {
+            float peelZone = smoothstep(0.08, 0.45, ts.necrosis) * (1.0 - smoothstep(0.45, 0.82, ts.necrosis));
+            float hyphalMat = ridgedFbm(mUv * 180.0);
+            ts.medullaExposure = max(ts.medullaExposure, peelZone * hyphalMat);
+
+            float flakeIslands = smoothstep(0.35, 0.88, ts.necrosis) * (1.0 - step(0.45, noise(mUv * 85.0)));
+            morphoRelief = morphoRelief * (1.0 - flakeIslands * 0.85) - ts.necrosis * 0.18 * (1.0 - hyphalMat);
+          }
+
+          // Smooth tapering profile at outer colony boundary + deep clefts along fractures
+          float edgeTaper = smoothstep(0.012, 0.16, ts.biomass);
+          float crackChasm = 1.0 - clamp(ts.crack * 0.68 + sutureCleft * 0.58, 0.0, 0.90);
+          float finalThallus = max(0.0, (morphoRelief + microCortex) * edgeTaper * crackChasm);
+
+          ts.thallusHeight = finalThallus * uReliefHeight;
+          ts.totalHeight   = ts.rockHeight + ts.thallusHeight;
+          return ts;
+        }
+
+        float sampleTotalHeight(vec2 uv) {
+          return evaluateTissue(uv).totalHeight;
+        }
+
+        // ------------------------------------------------------------------------
+        // Main Fragment Shader: Parallax Occlusion + Soft Ray Shadows + 4-Layer PBR
+        // ------------------------------------------------------------------------
+        void main() {
+          // Base camera coordinates
+          vec2 baseUv = (vUv - 0.5) / uZoom + 0.5 + uPan;
+
+          if (baseUv.x < 0.0 || baseUv.x > 1.0 || baseUv.y < 0.0 || baseUv.y > 1.0) {
+            fragColor = vec4(0.03, 0.035, 0.045, 1.0);
+            return;
+          }
+
+          // 1. Iterative Steep Relief Parallax Mapping (creates genuine 3D overhang & cup depth)
+          vec2 viewOffset = (vUv - 0.5) * 0.011 * uParallaxStrength * uReliefHeight;
+          vec2 uv = baseUv;
+          float hEst = sampleTotalHeight(uv);
+          for (int p = 0; p < 4; p++) {
+            uv = baseUv - viewOffset * hEst;
+            hEst = 0.5 * (hEst + sampleTotalHeight(uv));
+          }
+          uv = clamp(uv, 0.002, 0.998);
+
+          TissueSample ts = evaluateTissue(uv);
+
+          // 2. Multi-Scale Finite-Difference Surface Normals (Macro Form + Micro Cortical Relief)
+          float epsMacro = 1.0 / 384.0;
+          float epsMicro = 1.0 / 1200.0;
+
+          float hL = sampleTotalHeight(uv - vec2(epsMacro, 0.0));
+          float hR = sampleTotalHeight(uv + vec2(epsMacro, 0.0));
+          float hD = sampleTotalHeight(uv - vec2(0.0, epsMacro));
+          float hU = sampleTotalHeight(uv + vec2(0.0, epsMacro));
+
+          float mL = sampleTotalHeight(uv - vec2(epsMicro, 0.0));
+          float mR = sampleTotalHeight(uv + vec2(epsMicro, 0.0));
+          float mD = sampleTotalHeight(uv - vec2(0.0, epsMicro));
+          float mU = sampleTotalHeight(uv + vec2(0.0, epsMicro));
+
+          vec2 gradMacro = vec2(hL - hR, hD - hU) * 15.0;
+          vec2 gradMicro = vec2(mL - mR, mD - mU) * 28.0 * uMicroDetail;
+          vec3 normal = normalize(vec3(gradMacro + gradMicro, 1.0));
+
+          vec3 viewDir = normalize(vec3((0.5 - vUv) * 0.35, 1.0));
+          vec3 lightDir = normalize(uLightDir);
+
+          // 3. 16-Step Soft-Penumbra Ray-Marched Self-Shadowing
+          float shadow = 1.0;
+          vec2 lightStepUv = lightDir.xy * 0.0019;
+          float rayHeight = ts.totalHeight + 0.004;
+          float stepDz = lightDir.z * 0.021;
+          float dither = hash21(uv * 900.0) * 0.35;
+
+          for (int s = 1; s <= 16; s++) {
+            float tStep = float(s) + dither;
+            vec2 sampleUv = clamp(uv + lightStepUv * tStep, 0.001, 0.999);
+            float terrainH = sampleTotalHeight(sampleUv);
+            float currentRayH = rayHeight + stepDz * tStep;
+            if (terrainH > currentRayH) {
+              shadow -= (terrainH - currentRayH) * 2.85 / sqrt(tStep);
+            }
+          }
+          shadow = clamp(shadow, 0.08, 1.0);
+
+          // Multi-scale Cavity & Undercut Ambient Occlusion (deep inside cups, lobe undercuts & fissures)
+          float laplacianH = (hL + hR + hD + hU - 4.0 * ts.totalHeight);
+          float cavityAO = 1.0 - clamp(-laplacianH * 15.0, 0.0, 0.72);
+          cavityAO *= (1.0 - ts.crack * 0.62) * (1.0 - ts.hypothallus * 0.35);
+
+          // ----------------------------------------------------------------------
+          // 4. SUBSTRATE RENDERING (Weathered Slate + Quartz Vein + Damp Halo)
+          // ----------------------------------------------------------------------
+          float rockGrain = noise(uv * 190.0);
+          float micaGlint = step(0.974, hash21(floor(uv * 520.0))) * max(0.0, dot(normal, lightDir));
+          float rustVein = exp(-abs((uv.y - 0.32) - 0.45 * (uv.x - 0.4) + 0.04 * fbm(uv * 12.0)) * 45.0);
+          float quartzVein = exp(-abs((uv.y - 0.68) - 0.52 * (uv.x - 0.35) + 0.05 * fbm(uv * 6.0)) * 55.0);
+
+          vec3 drySlate = mix(vec3(0.13, 0.14, 0.16), vec3(0.26, 0.27, 0.30), ts.rockHeight * 2.2 + rockGrain * 0.16);
+          drySlate = mix(drySlate, vec3(0.40, 0.21, 0.11), rustVein * 0.60);
+          drySlate = mix(drySlate, vec3(0.68, 0.67, 0.64), quartzVein * 0.65);
+
+          // Damp capillary halo & organic stain around thallus perimeter
+          float neighborBio = texture(uBioTex, uv + vec2(0.005)).r + texture(uBioTex, uv - vec2(0.005)).r;
+          float dampHalo = smoothstep(0.0, 0.25, neighborBio) * (1.0 - smoothstep(0.02, 0.14, ts.biomass));
+          float rockWetness = clamp(uWetness * 0.65 + dampHalo * 0.5 + ts.necrosis * 0.35, 0.0, 1.0);
+          vec3 rockAlbedo = drySlate * mix(1.0, 0.48, rockWetness);
+
+          // ----------------------------------------------------------------------
+          // 5. LAYERED ANATOMICAL PIGMENTATION (Botanical Ground-Truth vs Psychedelic)
+          // ----------------------------------------------------------------------
+          vec3 marginCol;
+          vec3 cortexCol;
+          vec3 matureCol;
+          vec3 apotheciaCol;
+          vec3 sorediaCol;
+
+          float spNorm = ts.species / 4.0;
+          // Organic biological pigment variation noise across the thallus surface
+          float bioPigmentNoise = fbm(uv * 75.0 + vec2(ts.colonyHash * 13.1, ts.species * 7.9));
+
+          if (uPaletteMode == 0) {
+            // MODE 0: Botanical Herbarium Ground-Truth
+            if (ts.species < 0.5) {
+              marginCol    = vec3(0.78, 0.86, 0.16);
+              cortexCol    = vec3(0.64, 0.74, 0.13);
+              matureCol    = vec3(0.46, 0.55, 0.11);
+              apotheciaCol = vec3(0.06, 0.06, 0.07);
+              sorediaCol   = vec3(0.84, 0.90, 0.38);
+            } else if (ts.species < 1.5) {
+              marginCol    = vec3(0.98, 0.72, 0.12);
+              cortexCol    = mix(vec3(0.88, 0.52, 0.10), vec3(0.32, 0.58, 0.16), uWetness * 0.68);
+              matureCol    = vec3(0.62, 0.36, 0.08);
+              apotheciaCol = vec3(0.85, 0.22, 0.04);
+              sorediaCol   = vec3(0.94, 0.84, 0.54);
+            } else if (ts.species < 2.5) {
+              marginCol    = vec3(0.82, 0.92, 0.86);
+              cortexCol    = mix(vec3(0.65, 0.76, 0.68), vec3(0.30, 0.60, 0.40), uWetness * 0.65);
+              matureCol    = vec3(0.42, 0.52, 0.45);
+              apotheciaCol = vec3(0.35, 0.18, 0.12);
+              sorediaCol   = vec3(0.92, 0.96, 0.88);
+            } else if (ts.species < 3.5) {
+              marginCol    = vec3(0.58, 0.72, 0.44);
+              cortexCol    = vec3(0.42, 0.58, 0.32);
+              matureCol    = vec3(0.30, 0.44, 0.24);
+              apotheciaCol = vec3(0.90, 0.08, 0.08);
+              sorediaCol   = vec3(0.75, 0.88, 0.62);
+            } else {
+              marginCol    = vec3(0.40, 0.45, 0.34);
+              cortexCol    = mix(vec3(0.32, 0.28, 0.26), vec3(0.12, 0.32, 0.20), uWetness);
+              matureCol    = vec3(0.20, 0.18, 0.17);
+              apotheciaCol = vec3(0.08, 0.07, 0.07);
+              sorediaCol   = vec3(0.50, 0.58, 0.45);
+            }
+          }
+          else if (uPaletteMode == 1) {
+            // MODE 1: UV Parietin Bioluminescence (Electric Pop Variant)
+            float phase = spNorm * 4.2 + uHueShift + bioPigmentNoise * 0.55;
+            marginCol    = hueRotate(vec3(0.04, 1.00, 0.95), phase);
+            cortexCol    = hueRotate(vec3(0.98, 0.08, 0.85), phase + ts.age * 0.9);
+            matureCol    = hueRotate(vec3(0.22, 0.06, 0.75), phase + 0.7);
+            apotheciaCol = hueRotate(vec3(1.00, 0.78, 0.02), phase - 0.6);
+            sorediaCol   = hueRotate(vec3(0.45, 1.00, 0.15), phase + 0.4);
+          }
+          else if (uPaletteMode == 2) {
+            // MODE 2: Dichroic Opaline & Structural Oil-Slick
+            float phase = spNorm * 3.6 + uHueShift + bioPigmentNoise * 0.45;
+            marginCol    = hueRotate(vec3(0.38, 0.98, 0.90), phase);
+            cortexCol    = hueRotate(vec3(0.15, 0.32, 0.92), phase + ts.thallusHeight * 1.6);
+            matureCol    = hueRotate(vec3(0.08, 0.08, 0.38), phase);
+            apotheciaCol = hueRotate(vec3(0.98, 0.24, 0.65), phase);
+            sorediaCol   = hueRotate(vec3(0.80, 0.94, 1.00), phase);
+          }
+          else if (uPaletteMode == 3) {
+            // MODE 3: Alien Mycobiont / Chromatic Acid Pop
+            float phase = spNorm * 5.0 + uHueShift + bioPigmentNoise * 0.60;
+            marginCol    = hueRotate(vec3(0.60, 1.00, 0.08), phase);
+            cortexCol    = hueRotate(vec3(0.50, 0.04, 0.98), phase + ts.age * 1.2);
+            matureCol    = hueRotate(vec3(0.98, 0.18, 0.08), phase);
+            apotheciaCol = hueRotate(vec3(0.04, 0.98, 0.72), phase);
+            sorediaCol   = hueRotate(vec3(1.00, 0.90, 0.12), phase);
+          }
+          else if (uPaletteMode == 4) {
+            // MODE 4: Abyssal Hydrothermal Phosphor
+            float phase = spNorm * 3.1 + uHueShift + bioPigmentNoise * 0.50;
+            marginCol    = hueRotate(vec3(0.02, 0.98, 0.82), phase);
+            cortexCol    = hueRotate(vec3(0.04, 0.28, 0.95), phase + ts.age * 0.7);
+            matureCol    = hueRotate(vec3(0.02, 0.08, 0.42), phase);
+            apotheciaCol = hueRotate(vec3(1.00, 0.12, 0.28), phase);
+            sorediaCol   = hueRotate(vec3(0.32, 1.00, 0.92), phase);
+          }
+          else {
+            // MODE 5: Solarized Infrared Herbarium (Kodak Aerochrome False-Color)
+            float phase = spNorm * 2.4 + uHueShift + bioPigmentNoise * 0.40;
+            marginCol    = hueRotate(vec3(1.00, 0.80, 0.15), phase);
+            cortexCol    = hueRotate(vec3(0.98, 0.04, 0.32), phase + ts.age * 0.5);
+            matureCol    = hueRotate(vec3(0.32, 0.02, 0.24), phase);
+            apotheciaCol = hueRotate(vec3(0.08, 0.96, 0.98), phase);
+            sorediaCol   = hueRotate(vec3(1.00, 0.90, 0.82), phase);
+          }
+
+          // Compose anatomical tissue zones with organic variation mottling:
+          float youngRim = smoothstep(0.06, 0.26, ts.biomass) * (1.0 - smoothstep(0.26, 0.62, ts.biomass));
+          float growthRings = 0.5 + 0.5 * sin(ts.age * 32.0 + fbm(uv * 28.0) * 4.5);
+          float corticalMottle = noise(uv * 220.0);
+
+          vec3 tissueAlbedo = mix(cortexCol, matureCol, clamp(ts.age * 0.82 + growthRings * 0.24, 0.0, 1.0));
+          tissueAlbedo *= (0.85 + 0.30 * corticalMottle);
+          tissueAlbedo = mix(tissueAlbedo, marginCol, youngRim * 0.90);
+
+          // Hydrated internal photobiont layer glowing through wet cortex
+          vec3 photobiontCol = uPaletteMode == 0
+            ? vec3(0.14, 0.68, 0.12)
+            : hueRotate(vec3(0.08, 1.00, 0.52), spNorm * 3.8 + uHueShift);
+          tissueAlbedo = mix(tissueAlbedo, photobiontCol, clamp(ts.photobiontGlow * 0.45, 0.0, 0.75));
+
+          // Exposed cottony fungal medulla in cortical splits & squamule undersides
+          vec3 medullaCol = mix(vec3(0.95, 0.94, 0.91), sorediaCol, 0.40);
+          tissueAlbedo = mix(tissueAlbedo, medullaCol, clamp(ts.medullaExposure, 0.0, 0.95));
+
+          // Powdery soredia granules
+          tissueAlbedo = mix(tissueAlbedo, sorediaCol, ts.sorediaGranule * 0.88);
+
+          // Dark coral-like isidia tips
+          vec3 isidiaCol = matureCol * 0.35;
+          tissueAlbedo = mix(tissueAlbedo, isidiaCol, ts.isidiaTips * 0.90);
+
+          // Apothecial toroidal rim & concave hymenium disc
+          tissueAlbedo = mix(tissueAlbedo, marginCol * 1.18, ts.apotheciaRim * 0.78);
+          tissueAlbedo = mix(tissueAlbedo, apotheciaCol, ts.apotheciaCup * 0.96);
+
+          // Pioneering black hypothallus mat & areole cracks
+          vec3 hypothallusCol = uPaletteMode == 0 ? vec3(0.03, 0.03, 0.04) : vec3(0.04, 0.02, 0.09);
+          tissueAlbedo = mix(tissueAlbedo, hypothallusCol, clamp(ts.hypothallus * 0.92 + ts.rhizineFringe * 0.50, 0.0, 0.98));
+          tissueAlbedo = mix(tissueAlbedo, hypothallusCol, clamp(ts.crack * 0.90, 0.0, 0.96));
+
+          // Senescence & necrosis
+          if (ts.necrosis > 0.02) {
+            float bleachStage = smoothstep(0.05, 0.52, ts.necrosis);
+            float charStage   = smoothstep(0.52, 0.92, ts.necrosis);
+            vec3 bleachedBone = vec3(0.82, 0.81, 0.76) + 0.08 * noise(uv * 150.0);
+            vec3 necroticRot  = vec3(0.07, 0.06, 0.05);
+            tissueAlbedo = mix(tissueAlbedo, bleachedBone, bleachStage * 0.90);
+            tissueAlbedo = mix(tissueAlbedo, necroticRot, charStage * 0.96);
+          }
+
+          // Psychedelic Saturation Boost (Pushed for maximum chromatic pop)
+          if (uPaletteMode > 0) {
+            float luma = dot(tissueAlbedo, vec3(0.299, 0.587, 0.114));
+            tissueAlbedo = mix(vec3(luma), tissueAlbedo, uPsyIntensity * 1.25);
+          }
+
+          // Wetness cortical transparency shift
+          tissueAlbedo *= mix(1.08, 0.68, uWetness * (1.0 - ts.necrosis * 0.7));
+
+          // ----------------------------------------------------------------------
+          // 7. MICROFACET LIGHTING, VELVET FUZZ, BEER-LAMBERT SSS & THIN-FILM
+          // ----------------------------------------------------------------------
+          float NdotL = max(0.0, dot(normal, lightDir));
+          vec3 halfVec = normalize(lightDir + viewDir);
+          float NdotH = max(0.0, dot(normal, halfVec));
+          float NdotV = max(0.001, dot(normal, viewDir));
+
+          // Tissue-dependent roughness: apothecial discs, dewdrops & wet jelly are glossy; soredia & dry cortex are matte
+          float baseRoughness = mix(0.80, 0.22, uWetness * (1.0 - ts.necrosis * 0.8));
+          baseRoughness = mix(baseRoughness, 0.14, ts.apotheciaCup * uWetness);
+          baseRoughness = mix(baseRoughness, 0.04, ts.dewDrop);
+          baseRoughness = mix(baseRoughness, 0.95, max(ts.sorediaGranule, ts.medullaExposure));
+
+          float specPower = mix(6.0, 140.0, 1.0 - baseRoughness);
+          float spec = pow(NdotH, specPower) * mix(0.03, 0.42, 1.0 - baseRoughness) * shadow;
+          // Extra razor-sharp refractive lens glint on condensing dewdrops
+          float dewGlint = ts.dewDrop > 0.1 ? pow(NdotH, 240.0) * 1.35 * shadow : 0.0;
+
+          // Farinose / pruinose fungal rim backscatter (Oren-Nayar / velvet sheen on dry cortical hairs & soredia)
+          float rimVelvet = pow(1.0 - NdotV, 2.2) * (1.0 - uWetness * 0.65) * (0.4 + 0.6 * ts.sorediaGranule) * NdotL;
+
+          // Crystalline calcium oxalate pruina micro-glints on dry lobe tips & areoles
+          float pruinaSparkle = step(0.984, hash21(floor(uv * 460.0))) * (1.0 - uWetness * 0.75) * NdotL * shadow;
+
+          // Beer-Lambert Subsurface Scattering / Wrapped Translucency on raised lobes, cups & wet jelly
+          float wrapDiff = max(0.0, (dot(normal, lightDir) + 0.55) / 1.55);
+          float translucentZones = smoothstep(0.05, 0.65, ts.thallusHeight) * (1.0 - ts.hypothallus);
+          float sssFactor = (0.32 + 0.68 * uWetness) * translucentZones * uSssStrength * (1.0 - ts.necrosis);
+          vec3 sssLight = tissueAlbedo * mix(marginCol, photobiontCol, uWetness * 0.4) * wrapDiff * sssFactor * 0.98;
+
+          // Grazing-Angle Structural Iridescence (Layer IV)
+          float fresnel = pow(1.0 - NdotV, 2.6);
+          vec3 iridescenceCol = thinFilmIridescence(NdotV, 380.0 + ts.thallusHeight * 240.0, ts.age * 2.0);
+          float iridMask = (uPaletteMode > 0 ? uIridescence : 0.0) * (1.0 - ts.necrosis * 0.85) * (0.35 + 0.65 * fresnel);
+
+          // UV Parietin Fluorescence in active margins, soralia & apothecial cups
+          float uvExcite = (youngRim * 0.75 + ts.apotheciaCup * 0.95 + ts.sorediaGranule * 0.85) * (1.0 - ts.necrosis);
+          vec3 fluorescenceEmission = tissueAlbedo * uvExcite * (uPaletteMode > 0 ? uFluorescence : 0.0) * 0.65;
+
+          // Hemispherical Sky & Warm Ground Bounce Ambient + Radiosity Color Bleed onto adjacent rock
+          vec3 skyAmbient = mix(vec3(0.16, 0.18, 0.22), vec3(0.24, 0.28, 0.35), 0.5 + 0.5 * normal.z);
+          vec3 ambient = tissueAlbedo * skyAmbient * cavityAO;
+          vec3 direct  = tissueAlbedo * NdotL * shadow * 1.34;
+          vec3 velvet  = sorediaCol * rimVelvet * 0.24;
+          vec3 lichenLit = ambient + direct + velvet + sssLight + iridMask * iridescenceCol * 0.42 + fluorescenceEmission + vec3(spec + dewGlint + pruinaSparkle * 0.38);
+
+          // Combine Physically Illuminated Rock Radiance (with subtle color bounce from nearby glowing lichen!)
+          float rockSpec = pow(NdotH, 38.0) * rockWetness * 0.22 * shadow + micaGlint * 0.20 * shadow;
+          vec3 bounceBleed = marginCol * dampHalo * 0.14 * shadow;
+          vec3 rockLit = rockAlbedo * (skyAmbient * cavityAO + NdotL * shadow * 1.18) + bounceBleed + vec3(rockSpec);
+
+          // Sharp, organic fimbriate transition at the outer hypothallus boundary
+          float edgeDetail = (fbm(uv * 180.0) - 0.5) * 0.025;
+          float thallusAlpha = smoothstep(0.015, 0.075, ts.biomass + edgeDetail);
+          vec3 finalLinear = mix(rockLit, lichenLit, thallusAlpha);
+
+          // Macro Photography Optical Polish (Subtle 100mm f/2.8 Peripheral Vignette & Film Grain)
+          if (uMacroOptics > 0.01) {
+            float radialDist = length(vUv - 0.5);
+            float vignette = 1.0 - smoothstep(0.35, 0.82, radialDist) * 0.28 * uMacroOptics;
+            float filmGrain = (hash21(vUv * 1024.0 + fract(uTime)) - 0.5) * 0.018 * uMacroOptics;
+            finalLinear = finalLinear * vignette + filmGrain;
+          }
+
+          // ACES-inspired filmic tone mapping
+          finalLinear = (finalLinear * (2.51 * finalLinear + 0.03)) / (finalLinear * (2.43 * finalLinear + 0.59) + 0.14);
+          finalLinear = pow(clamp(finalLinear, 0.0, 1.0), vec3(1.0 / 2.2));
+
+          // Grayscale Proof Mode ("A lichen should still look like lichen when rendered in grayscale")
+          if (uGrayscaleProof) {
+            float g = dot(finalLinear, vec3(0.299, 0.587, 0.114));
+            finalLinear = vec3(g);
+          }
+
+          fragColor = vec4(finalLinear, 1.0);
+        }
+      `;
+
+      function compileShader(type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+        }
+        return shader;
+      }
+
+      const program = gl.createProgram();
+      gl.attachShader(program, compileShader(gl.VERTEX_SHADER, vsSource));
+      gl.attachShader(program, compileShader(gl.FRAGMENT_SHADER, fsSource));
+      gl.linkProgram(program);
+      gl.useProgram(program);
+
+      // Fullscreen Quad Geometry
+      const quadBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      const aPositionLoc = gl.getAttribLocation(program, 'aPosition');
+      gl.enableVertexAttribArray(aPositionLoc);
+      gl.vertexAttribPointer(aPositionLoc, 2, gl.FLOAT, false, 0, 0);
+
+      // Create & Configure WebGL Textures
+      function createFieldTexture(unit) {
+        const tex = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE0 + unit);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        return tex;
+      }
+
+      const bioTex = createFieldTexture(0);
+      const auxTex = createFieldTexture(1);
+
+      // Uniform Locations
+      const uniforms = {
+        uBioTex: gl.getUniformLocation(program, 'uBioTex'),
+        uAuxTex: gl.getUniformLocation(program, 'uAuxTex'),
+        uTime: gl.getUniformLocation(program, 'uTime'),
+        uWetness: gl.getUniformLocation(program, 'uWetness'),
+        uPaletteMode: gl.getUniformLocation(program, 'uPaletteMode'),
+        uHueShift: gl.getUniformLocation(program, 'uHueShift'),
+        uPsyIntensity: gl.getUniformLocation(program, 'uPsyIntensity'),
+        uIridescence: gl.getUniformLocation(program, 'uIridescence'),
+        uFluorescence: gl.getUniformLocation(program, 'uFluorescence'),
+        uLightDir: gl.getUniformLocation(program, 'uLightDir'),
+        uReliefHeight: gl.getUniformLocation(program, 'uReliefHeight'),
+        uMicroDetail: gl.getUniformLocation(program, 'uMicroDetail'),
+        uSssStrength: gl.getUniformLocation(program, 'uSssStrength'),
+        uParallaxStrength: gl.getUniformLocation(program, 'uParallaxStrength'),
+        uMacroOptics: gl.getUniformLocation(program, 'uMacroOptics'),
+        uGrayscaleProof: gl.getUniformLocation(program, 'uGrayscaleProof'),
+        uZoom: gl.getUniformLocation(program, 'uZoom'),
+        uPan: gl.getUniformLocation(program, 'uPan')
+      };
+
+      gl.uniform1i(uniforms.uBioTex, 0);
+      gl.uniform1i(uniforms.uAuxTex, 1);
+
+      // Resize Canvas to match DPI
+      function resizeCanvas() {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const rawSize = Math.min(rect.width || 600, rect.height || 600);
+        const size = Math.max(256, Math.floor(rawSize * dpr));
+        if (canvas.width !== size || canvas.height !== size) {
+          canvas.width = size;
+          canvas.height = size;
+          gl.viewport(0, 0, size, size);
+        }
+      }
+      window.addEventListener('resize', resizeCanvas);
+
+      // ============================================================================
+      // 4. INTERACTIVE CANVAS CONTROLS (SEED, MIST, SCRAPE, RAKING LIGHT & ZOOM)
+      // ============================================================================
+      let isPointerDown = false;
+      let isPanning = false;
+      let lastPanClientX = 0;
+      let lastPanClientY = 0;
+
+      function updateScaleBarLabel() {
+        const mm = (5.0 / params.zoom).toFixed(1);
+        const label = document.getElementById('scaleBarLabel');
+        if (label) label.textContent = `${mm} mm`;
+      }
+
+      function screenToSimUv(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const sx = (clientX - rect.left) / rect.width;
+        const sy = 1.0 - (clientY - rect.top) / rect.height; // flip Y for WebGL
+        const u = (sx - 0.5) / params.zoom + 0.5 + params.panX;
+        const v = (sy - 0.5) / params.zoom + 0.5 + params.panY;
+        return { u: Math.max(0.01, Math.min(0.99, u)), v: Math.max(0.01, Math.min(0.99, v)), sx, sy };
+      }
+
+      function applyBrushAt(clientX, clientY, isShiftKey, isMove) {
+        const { u, v, sx, sy } = screenToSimUv(clientX, clientY);
+
+        // Shift+Drag moves the raking directional sun angle directly
+        if (isShiftKey) {
+          const dx = sx - 0.5;
+          const dy = sy - 0.5;
+          params.lightAzimuth = Math.atan2(dy, dx);
+          const deg = Math.round(((params.lightAzimuth * 180 / Math.PI) + 360) % 360);
+          document.getElementById('lightAzimuthSlider').value = deg;
+          document.getElementById('lightAzimuthVal').textContent = `${deg}°`;
+          return;
+        }
+
+        const cx = Math.floor(u * GRID_SIZE);
+        const cy = Math.floor(v * GRID_SIZE);
+
+        if (activeTool === 'seed') {
+          if (!isMove || Math.random() < 0.35) {
+            inoculateColony(u, v, activeSpecies, isMove ? 2.8 : 4.2);
+            syncTextures();
+          }
+        } else if (activeTool === 'water') {
+          const r = 14;
+          for (let dy = -r; dy <= r; dy++) {
+            for (let dx = -r; dx <= r; dx++) {
+              const x = cx + dx, y = cy + dy;
+              if (x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE && dx*dx + dy*dy <= r*r) {
+                const idx = y * GRID_SIZE + x;
+                waterField[idx] = 1.0;
+                nutrientField[idx] = Math.min(1.0, nutrientField[idx] + 0.25);
+              }
+            }
+          }
+          params.ambientHydration = Math.min(1.0, params.ambientHydration + 0.03);
+          document.getElementById('hydrationSlider').value = params.ambientHydration;
+          document.getElementById('hydrationVal').textContent = params.ambientHydration.toFixed(2);
+          syncTextures();
+        } else if (activeTool === 'scrape') {
+          const r = 9;
+          for (let dy = -r; dy <= r; dy++) {
+            for (let dx = -r; dx <= r; dx++) {
+              const x = cx + dx, y = cy + dy;
+              if (x >= 1 && x < GRID_SIZE - 1 && y >= 1 && y < GRID_SIZE - 1 && dx*dx + dy*dy <= r*r) {
+                const idx = y * GRID_SIZE + x;
+                biomass[idx] = 0.0;
+                ageField[idx] = 0.0;
+                stressField[idx] = 0.0;
+                crackField[idx] = 0.0;
+                necrosisField[idx] = 0.15;
+                fruitingField[idx] = 0.0;
+                colonyIdField[idx] = 0;
+                nutrientField[idx] = 1.0;
+              }
+            }
+          }
+          syncTextures();
+        }
+      }
+
+      canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+      canvas.addEventListener('pointerdown', (e) => {
+        isPointerDown = true;
+        canvas.setPointerCapture(e.pointerId);
+        // Right-click, Middle-click, or Alt+Drag pans the macro camera across the rock
+        if (e.button === 1 || e.button === 2 || e.altKey) {
+          isPanning = true;
+          lastPanClientX = e.clientX;
+          lastPanClientY = e.clientY;
+          return;
+        }
+        isPanning = false;
+        applyBrushAt(e.clientX, e.clientY, e.shiftKey, false);
+      });
+
+      canvas.addEventListener('pointermove', (e) => {
+        if (!isPointerDown) return;
+        if (isPanning) {
+          const rect = canvas.getBoundingClientRect();
+          const dx = (e.clientX - lastPanClientX) / rect.width;
+          const dy = (e.clientY - lastPanClientY) / rect.height;
+          lastPanClientX = e.clientX;
+          lastPanClientY = e.clientY;
+          const maxPan = Math.max(0.0, 0.5 - 0.5 / params.zoom);
+          params.panX = Math.max(-maxPan, Math.min(maxPan, params.panX - dx / params.zoom));
+          params.panY = Math.max(-maxPan, Math.min(maxPan, params.panY + dy / params.zoom));
+          return;
+        }
+        applyBrushAt(e.clientX, e.clientY, e.shiftKey, true);
+      });
+
+      canvas.addEventListener('pointerup', () => { isPointerDown = false; isPanning = false; });
+      canvas.addEventListener('pointercancel', () => { isPointerDown = false; isPanning = false; });
+
+      // Mouse Wheel Macro Zoom (Zooms smoothly toward cursor position!)
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const sx = (e.clientX - rect.left) / rect.width;
+        const sy = 1.0 - (e.clientY - rect.top) / rect.height;
+
+        const prevZoom = params.zoom;
+        const factor = e.deltaY < 0 ? 1.12 : 0.89;
+        params.zoom = Math.max(0.6, Math.min(3.5, params.zoom * factor));
+
+        // Keep world point under cursor stationary while zooming in
+        params.panX += (sx - 0.5) * (1.0 / prevZoom - 1.0 / params.zoom);
+        params.panY += (sy - 0.5) * (1.0 / prevZoom - 1.0 / params.zoom);
+        const maxPan = Math.max(0.0, 0.5 - 0.5 / params.zoom);
+        params.panX = Math.max(-maxPan, Math.min(maxPan, params.panX));
+        params.panY = Math.max(-maxPan, Math.min(maxPan, params.panY));
+
+        document.getElementById('zoomSlider').value = params.zoom;
+        document.getElementById('zoomVal').textContent = `${params.zoom.toFixed(2)}x`;
+        updateScaleBarLabel();
+      }, { passive: false });
+
+      // ============================================================================
+      // 5. UI CONTROLS, TABS, PRESETS & CHRONOLOGY JUMPS
+      // ============================================================================
+      // Tabs
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.remove('border-sky-400', 'text-sky-400', 'bg-slate-900/50');
+            b.classList.add('border-transparent', 'text-slate-400');
+          });
+          btn.classList.add('border-sky-400', 'text-sky-400', 'bg-slate-900/50');
+          btn.classList.remove('border-transparent', 'text-slate-400');
+
+          const targetId = btn.getAttribute('data-tab');
+          document.querySelectorAll('.tab-panel').forEach(panel => {
+            panel.classList.toggle('hidden', panel.id !== targetId);
+          });
+        });
+      });
+
+      // Tool Mode Selector
+      document.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tool-btn').forEach(b => {
+            b.className = 'tool-btn py-2 px-2.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 font-medium text-center';
+          });
+          btn.className = 'tool-btn py-2 px-2.5 rounded-lg border border-sky-500 bg-sky-500/15 text-sky-200 font-medium text-center';
+          activeTool = btn.getAttribute('data-tool');
+        });
+      });
+
+      // Species Engine Selector
+      document.querySelectorAll('.species-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.species-pill').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          activeSpecies = parseInt(btn.getAttribute('data-species'), 10);
+        });
+      });
+
+      // Psychedelic Palette Selector
+      document.querySelectorAll('.palette-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.palette-pill').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          params.paletteMode = parseInt(btn.getAttribute('data-palette'), 10);
+        });
+      });
+
+      // Transport Controls
+      const playPauseBtn = document.getElementById('playPauseBtn');
+      playPauseBtn.addEventListener('click', () => {
+        isRunning = !isRunning;
+        document.getElementById('playPauseIcon').textContent = isRunning ? '⏸' : '▶';
+        document.getElementById('playPauseText').textContent = isRunning ? 'Pause' : 'Grow';
+        document.getElementById('statusDot').className = isRunning
+          ? 'inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse'
+          : 'inline-block w-2.5 h-2.5 rounded-full bg-amber-400';
+      });
+
+      function runFastForwardSteps(numSteps) {
+        for (let i = 0; i < numSteps; i++) {
+          stepBiologicalSimulation();
+        }
+        syncTextures();
+      }
+
+      document.getElementById('stepDecadeBtn').addEventListener('click', () => {
+        runFastForwardSteps(160);
+      });
+
+      document.getElementById('rainPulseBtn').addEventListener('click', () => {
+        params.ambientHydration = 0.98;
+        waterField.fill(1.0);
+        document.getElementById('hydrationSlider').value = 0.98;
+        document.getElementById('hydrationVal').textContent = '0.98';
+      });
+
+      document.getElementById('desiccateBtn').addEventListener('click', () => {
+        params.ambientHydration = 0.08;
+        waterField.fill(0.08);
+        document.getElementById('hydrationSlider').value = 0.08;
+        document.getElementById('hydrationVal').textContent = '0.08';
+      });
+
+      document.getElementById('grayscaleToggleBtn').addEventListener('click', () => {
+        params.grayscaleProof = !params.grayscaleProof;
+        document.getElementById('grayscaleBadge').classList.toggle('hidden', !params.grayscaleProof);
+      });
+
+      document.getElementById('reseedEcosystemBtn').addEventListener('click', () => {
+        seedDefaultSlateEcosystem();
+        runFastForwardSteps(70);
+      });
+
+      document.getElementById('clearSlateBtn').addEventListener('click', () => {
+        clearAllLichens();
+      });
+
+      // Chronology Jump Presets
+      document.getElementById('presetYoungBtn').addEventListener('click', () => {
+        seedDefaultSlateEcosystem();
+        runFastForwardSteps(35);
+      });
+
+      document.getElementById('presetMatureBtn').addEventListener('click', () => {
+        seedDefaultSlateEcosystem();
+        runFastForwardSteps(240);
+      });
+
+      document.getElementById('presetAncientBtn').addEventListener('click', () => {
+        seedDefaultSlateEcosystem();
+        const prevSen = params.senescenceRate;
+        params.senescenceRate = 1.1;
+        runFastForwardSteps(460);
+        params.senescenceRate = prevSen;
+      });
+
+      document.getElementById('presetRingBtn').addEventListener('click', () => {
+        clearAllLichens();
+        inoculateColony(0.5, 0.5, activeSpecies, 6.0);
+        const prevSen = params.senescenceRate;
+        params.senescenceRate = 1.45;
+        runFastForwardSteps(440);
+        // Seed a fresh contrasting colony right in the eroded dead center!
+        inoculateColony(0.5, 0.5, (activeSpecies + 1) % 5, 3.2);
+        runFastForwardSteps(40);
+        params.senescenceRate = prevSen;
+      });
+
+      // Sliders Binding Helper
+      function bindSlider(id, valId, paramKey, formatter) {
+        const el = document.getElementById(id);
+        const valEl = document.getElementById(valId);
+        el.addEventListener('input', () => {
+          const v = parseFloat(el.value);
+          params[paramKey] = v;
+          valEl.textContent = formatter ? formatter(v) : v.toFixed(2);
+        });
+      }
+
+      bindSlider('hueShiftSlider', 'hueShiftVal', 'hueShift', v => {
+        params.hueShift = v * Math.PI / 180;
+        return `${Math.round(v)}°`;
+      });
+      bindSlider('psyIntensitySlider', 'psyIntensityVal', 'psyIntensity');
+      bindSlider('iridescenceSlider', 'iridescenceVal', 'iridescence');
+      bindSlider('fluorescenceSlider', 'fluorescenceVal', 'fluorescence');
+      bindSlider('simSpeedSlider', 'simSpeedVal', 'simSpeed', v => `${Math.round(v)}x`);
+      bindSlider('hydrationSlider', 'hydrationVal', 'ambientHydration');
+      bindSlider('fractureSlider', 'fractureVal', 'fractureRate');
+      bindSlider('fruitingSlider', 'fruitingVal', 'fruitingRate');
+      bindSlider('senescenceSlider', 'senescenceVal', 'senescenceRate');
+      bindSlider('sporeRateSlider', 'sporeRateVal', 'sporeRate', v => v === 0 ? 'Off' : v.toFixed(2));
+      bindSlider('lightAzimuthSlider', 'lightAzimuthVal', 'lightAzimuth', v => {
+        params.lightAzimuth = v * Math.PI / 180;
+        return `${Math.round(v)}°`;
+      });
+      bindSlider('lightElevationSlider', 'lightElevationVal', 'lightElevation', v => {
+        params.lightElevation = v * Math.PI / 180;
+        return `${Math.round(v)}°`;
+      });
+      bindSlider('reliefHeightSlider', 'reliefHeightVal', 'reliefHeight');
+      bindSlider('microDetailSlider', 'microDetailVal', 'microDetail');
+      bindSlider('sssSlider', 'sssVal', 'sssStrength');
+      bindSlider('parallaxSlider', 'parallaxVal', 'parallaxStrength');
+      bindSlider('dofSlider', 'dofVal', 'macroOptics');
+      bindSlider('zoomSlider', 'zoomVal', 'zoom', v => {
+        updateScaleBarLabel();
+        return `${v.toFixed(2)}x`;
+      });
+
+      document.getElementById('resetCameraBtn').addEventListener('click', () => {
+        params.zoom = 1.0;
+        params.panX = 0.0;
+        params.panY = 0.0;
+        document.getElementById('zoomSlider').value = 1.0;
+        document.getElementById('zoomVal').textContent = '1.00x';
+        updateScaleBarLabel();
+      });
+
+      // Surprise Pigment Genome Mutator (modifies Layer IV without altering biological state)
+      document.getElementById('surprisePigmentBtn').addEventListener('click', () => {
+        const randomPalette = 1 + Math.floor(Math.random() * 5);
+        params.paletteMode = randomPalette;
+        document.querySelectorAll('.palette-pill').forEach(b => {
+          b.classList.toggle('active', parseInt(b.getAttribute('data-palette'), 10) === randomPalette);
+        });
+
+        const randHue = Math.floor(Math.random() * 360);
+        params.hueShift = randHue * Math.PI / 180;
+        document.getElementById('hueShiftSlider').value = randHue;
+        document.getElementById('hueShiftVal').textContent = `${randHue}°`;
+
+        const randPsy = +(1.15 + Math.random() * 1.1).toFixed(2);
+        params.psyIntensity = randPsy;
+        document.getElementById('psyIntensitySlider').value = randPsy;
+        document.getElementById('psyIntensityVal').textContent = randPsy.toFixed(2);
+
+        const randIrid = +(0.35 + Math.random() * 1.0).toFixed(2);
+        params.iridescence = randIrid;
+        document.getElementById('iridescenceSlider').value = randIrid;
+        document.getElementById('iridescenceVal').textContent = randIrid.toFixed(2);
+      });
+
+      // High-Resolution PNG Snapshot Export
+      document.getElementById('exportPngBtn').addEventListener('click', () => {
+        const link = document.createElement('a');
+        link.download = `psychedelic-lichen-yr-${Math.round(simYears)}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      });
+
+      // ============================================================================
+      // 6. INITIALIZATION & MAIN ANIMATION LOOP
+      // ============================================================================
+      initRockSubstrate();
+      seedDefaultSlateEcosystem();
+      // Pre-grow to Year ~18 on startup so the viewer immediately sees living colonies
+      // with young margins, raised lobes, and early areoles ready to keep growing
+      runFastForwardSteps(110);
+      resizeCanvas();
+
+      function renderLoop(nowMs) {
+        resizeCanvas();
+
+        if (isRunning) {
+          for (let s = 0; s < params.simSpeed; s++) {
+            stepBiologicalSimulation();
+          }
+          syncTextures();
+        }
+
+        // Upload updated biological state textures
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, bioTex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, GRID_SIZE, GRID_SIZE, 0, gl.RGBA, gl.UNSIGNED_BYTE, bioTexData);
+
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, auxTex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, GRID_SIZE, GRID_SIZE, 0, gl.RGBA, gl.UNSIGNED_BYTE, auxTexData);
+
+        // Compute 3D directional light vector from Azimuth & Elevation
+        const cosEl = Math.cos(params.lightElevation);
+        const lx = Math.cos(params.lightAzimuth) * cosEl;
+        const ly = Math.sin(params.lightAzimuth) * cosEl;
+        const lz = Math.sin(params.lightElevation);
+
+        gl.uniform1f(uniforms.uTime, nowMs * 0.001);
+        gl.uniform1f(uniforms.uWetness, params.effectiveWetness);
+        gl.uniform1i(uniforms.uPaletteMode, params.paletteMode);
+        gl.uniform1f(uniforms.uHueShift, params.hueShift);
+        gl.uniform1f(uniforms.uPsyIntensity, params.psyIntensity);
+        gl.uniform1f(uniforms.uIridescence, params.iridescence);
+        gl.uniform1f(uniforms.uFluorescence, params.fluorescence);
+        gl.uniform3f(uniforms.uLightDir, lx, ly, lz);
+        gl.uniform1f(uniforms.uReliefHeight, params.reliefHeight);
+        gl.uniform1f(uniforms.uMicroDetail, params.microDetail);
+        gl.uniform1f(uniforms.uSssStrength, params.sssStrength);
+        gl.uniform1f(uniforms.uParallaxStrength, params.parallaxStrength);
+        gl.uniform1f(uniforms.uMacroOptics, params.macroOptics);
+        gl.uniform1i(uniforms.uGrayscaleProof, params.grayscaleProof ? 1 : 0);
+        gl.uniform1f(uniforms.uZoom, params.zoom);
+        gl.uniform2f(uniforms.uPan, params.panX, params.panY);
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        requestAnimationFrame(renderLoop);
+      }
+
+      requestAnimationFrame(renderLoop);
+    })();
+  </script>
+</body>
+</html>
