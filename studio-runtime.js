@@ -379,9 +379,15 @@
         }else if(kind==='gif'){
           blob=await encodeGIF(opts);
         }else{
-          blob=await encodeWebCodecsMP4(opts);
+          let webCodecError=null;
+          try { blob=await encodeWebCodecsMP4(opts); }
+          catch (error) {
+            if (cancelled) throw error;
+            webCodecError=error;
+            console.warn('WebCodecs MP4 encoder failed, checking native recorder:',error);
+          }
           if(!blob)blob=await encodeRecorderMP4(opts);
-          if(!blob)throw Error('This browser has no usable H.264 MP4 encoder. Try a current Safari/Chrome, or export GIF.');
+          if(!blob)throw Error('No usable H.264 MP4 encoder on this browser. '+(webCodecError?.message||'Try current Safari or Chrome, or export GIF.'));
         }
         if(cancelled)throw new DOMException('Export cancelled','AbortError');
         if(!blob || !blob.size)throw Error('The encoder produced an empty file.');
