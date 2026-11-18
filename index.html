@@ -2527,16 +2527,23 @@
       // Hand the enhancer access to the existing real biological and optical pipeline.
       // It may not bypass the renderer or reset the user's living ecosystem.
       if (typeof window.setupLichenStudio === 'function') {
-        window.setupLichenStudio({
-          gl, canvas, params, uniforms,
-          getYears: () => simYears,
-          exportFrame: (t, advance) => renderLoop(t, true, advance),
-          setExportLock: (locked, growthSteps) => {
-            lichenExportLock = locked;
-            if (Number.isFinite(growthSteps)) lichenExportSteps = Math.max(0, Math.min(12, growthSteps));
-          },
-          restoreCanvas: () => { resizeCanvas(); }
-        });
+        try {
+          window.setupLichenStudio({
+            gl, canvas, params, uniforms,
+            getYears: () => simYears,
+            exportFrame: (t, advance) => renderLoop(t, true, advance),
+            setExportLock: (locked, growthSteps) => {
+              lichenExportLock = locked;
+              if (Number.isFinite(growthSteps)) lichenExportSteps = Math.max(0, Math.min(12, growthSteps));
+            },
+            restoreCanvas: () => { resizeCanvas(); }
+          });
+        } catch (studioError) {
+          console.error('Optional Lichen Studio enhancement failed:', studioError);
+          const exportStatus = document.getElementById('exportStatus');
+          if (exportStatus) exportStatus.textContent = 'Export controls could not initialize: ' + studioError.message;
+          // Never let a color/export UI failure kill the biological renderer.
+        }
       }
 
       requestAnimationFrame(renderLoop);
