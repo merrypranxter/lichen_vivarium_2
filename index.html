@@ -74,14 +74,16 @@
       box-shadow: 0 0 15px -3px rgba(232, 121, 249, 0.35);
     }
   </style>
+  <link rel="stylesheet" href="./studio-layout.css" />
+  <script src="./palette-library.js"></script>
 </head>
 <body class="min-h-screen flex flex-col lg:flex-row bg-[#08090c] text-slate-200">
 
   <!-- LEFT / TOP STICKY VIEWPORT AREA -->
-  <div class="relative flex-1 flex flex-col items-center justify-center p-2 sm:p-4 lg:h-screen lg:sticky lg:top-0 bg-[#060709]">
+  <div id="viewportStage" class="relative flex-1 flex flex-col items-center justify-center p-2 sm:p-4 lg:h-screen lg:sticky lg:top-0 bg-[#060709]">
     
     <!-- Top Floating HUD -->
-    <div class="w-full max-w-[920px] flex flex-wrap items-center justify-between gap-2 mb-2 px-2 py-1.5 rounded-xl bg-slate-900/80 backdrop-blur-md border border-slate-800/80 text-xs">
+    <div id="viewportHud" class="w-full max-w-[920px] flex flex-wrap items-center justify-between gap-2 mb-2 px-2 py-1.5 rounded-xl bg-slate-900/80 backdrop-blur-md border border-slate-800/80 text-xs">
       <div class="flex items-center gap-2.5">
         <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" id="statusDot"></span>
         <span class="font-semibold tracking-wide text-slate-100 uppercase">Lichen Morphogenesis Engine</span>
@@ -116,7 +118,7 @@
     </div>
 
     <!-- Quick Transport Bar below Canvas -->
-    <div class="w-full max-w-[920px] mt-2.5 flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800">
+    <div id="quickTransport" class="w-full max-w-[920px] mt-2.5 flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800">
       <div class="flex items-center gap-1.5">
         <button id="playPauseBtn" class="px-3.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs flex items-center gap-1.5 transition shadow-lg shadow-sky-500/20">
           <span id="playPauseIcon">⏸</span> <span id="playPauseText">Pause</span>
@@ -146,11 +148,13 @@
     </div>
   </div>
 
+  <div id="stageDivider" role="separator" aria-label="Drag to resize the lichen preview" aria-orientation="horizontal" tabindex="0"></div>
+
   <!-- RIGHT / BOTTOM SCIENTIFIC & PSYCHEDELIC CONTROL PANEL -->
-  <aside class="w-full lg:w-[440px] xl:w-[480px] bg-[#0d0f14] border-t lg:border-t-0 lg:border-l border-slate-800/90 flex flex-col lg:h-screen lg:overflow-y-auto">
+  <aside id="controlsPanel" class="w-full lg:w-[440px] xl:w-[480px] bg-[#0d0f14] border-t lg:border-t-0 lg:border-l border-slate-800/90 flex flex-col lg:h-screen lg:overflow-y-auto">
     
     <!-- Header -->
-    <div class="p-4 border-b border-slate-800/80 bg-[#0a0c10]">
+    <div id="controlsHeader" class="p-4 border-b border-slate-800/80 bg-[#0a0c10]">
       <div class="flex items-center justify-between">
         <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
           <span class="text-fuchsia-400">●</span> Photorealistic Lichen Lab
@@ -163,11 +167,12 @@
     </div>
 
     <!-- Navigation Tabs -->
-    <div class="grid grid-cols-4 border-b border-slate-800 bg-[#090b0f] text-xs font-medium">
-      <button data-tab="tab-engines" class="tab-btn py-2.5 border-b-2 border-sky-400 text-sky-400 bg-slate-900/50">1. Species</button>
-      <button data-tab="tab-psychedelic" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">2. Pigments</button>
-      <button data-tab="tab-lifecycle" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">3. Life/Death</button>
-      <button data-tab="tab-optics" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">4. Optics/3D</button>
+    <div id="tabBar" role="tablist" aria-label="Lichen studio controls" class="grid grid-cols-5 border-b border-slate-800 bg-[#090b0f] text-xs font-medium">
+      <button data-tab="tab-engines" class="tab-btn py-2.5 border-b-2 border-sky-400 text-sky-400 bg-slate-900/50">Species</button>
+      <button data-tab="tab-psychedelic" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Color Lab</button>
+      <button data-tab="tab-lifecycle" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Life/Death</button>
+      <button data-tab="tab-optics" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Optics/3D</button>
+      <button data-tab="tab-export" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Export</button>
     </div>
 
     <!-- TAB 1: FIVE GROWTH ENGINES & INTERACTION -->
@@ -282,6 +287,9 @@
         <strong>Layer IV Architecture:</strong> Pigments are bound in biological material coordinates (cortex, medulla, photobiont layer, apothecial rim, and necrotic bleach) <em>before</em> microfacet lighting and shadows.
       </div>
 
+      <details class="rounded-xl border border-slate-800 bg-slate-950/50">
+        <summary class="cursor-pointer px-3 py-3 text-xs font-semibold text-sky-300">Gemini's 6 original pigment modes (tap to expand)</summary>
+        <div class="p-3">
       <div>
         <label class="text-xs font-semibold uppercase tracking-wider text-slate-300 block mb-2">Psychedelic Palette Mode [Evidence D]</label>
         <div class="grid grid-cols-1 gap-2" id="paletteSelector">
@@ -357,6 +365,33 @@
             </div>
           </button>
         </div>
+      </div>
+
+        </div>
+      </details>
+
+      <div class="space-y-3 rounded-xl border border-fuchsia-700/40 bg-fuchsia-950/15 p-3" id="namedPaletteStudio">
+        <h2 class="text-sm font-bold text-fuchsia-200">MATHEMAGICAL! color vault</h2>
+        <p class="text-[11px] text-slate-400">Your actual original palettes from It's a Moiré, AutomatArt, Chaos Calligraphy, React Diff Artist and Slimekimi — all stops intact. Edit without touching the living anatomy.</p>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="block text-[11px] text-slate-300">Palette family
+            <select id="paletteFamily" class="lichen-select mt-1"><option value="all">All my palettes</option></select>
+          </label>
+          <label class="block text-[11px] text-slate-300">Find a palette
+            <input id="paletteSearch" type="search" class="lichen-select mt-1" placeholder="Acid, opal, neon…" autocomplete="off"/>
+          </label>
+        </div>
+        <select id="paletteVaultSelect" class="lichen-select" aria-label="Select named color palette"><option value="">Choose a named palette…</option></select>
+        <div id="colorStopEditor" aria-label="Editable palette color stops"></div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="randomPaletteBtn" class="lichen-studio-button lichen-primary">🎲 Random Named Palette</button>
+          <button id="randomStopColorsBtn" class="lichen-studio-button">🌈 Randomize All Stops</button>
+          <button id="shuffleStopOrderBtn" class="lichen-studio-button">⇄ Shuffle Stops</button>
+          <button id="reverseStopOrderBtn" class="lichen-studio-button">↶ Reverse Stops</button>
+          <button id="rotateStopOrderBtn" class="lichen-studio-button">↻ Rotate Stops</button>
+          <button id="addColorStopBtn" class="lichen-studio-button">＋ Add Color Stop</button>
+        </div>
+        <div id="paletteVaultStatus" aria-live="polite" class="text-[11px] text-fuchsia-200">Choose a named palette to activate its material colors.</div>
       </div>
 
       <!-- Psychedelic Sliders -->
@@ -544,6 +579,64 @@
           📸 Capture High-Res Macro Photograph (PNG)
         </button>
       </div>
+    </div>
+
+    <!-- TAB 5: REAL OFFLINE IMAGE / GIF / MP4 FRAME EXPORT -->
+    <div id="tab-export" class="tab-panel hidden p-4 space-y-4">
+      <h2 class="font-bold text-fuchsia-200">High-resolution living lichen exports</h2>
+      <p class="text-[11px] text-slate-400">Render the actual evolving WebGL2 scene frame by frame, not a screen recording of the phone UI. Square, no watermark, no Netlify.</p>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="text-xs text-slate-300">Output pixels
+          <select id="exportResolution" class="lichen-select mt-1">
+            <option value="512">512 × 512 (fast)</option>
+            <option value="768">768 × 768</option>
+            <option value="1024" selected>1024 × 1024 (HD)</option>
+            <option value="1536">1536 × 1536 (high)</option>
+            <option value="2048">2048 × 2048 (ultra)</option>
+          </select>
+        </label>
+        <label class="text-xs text-slate-300">Duration
+          <select id="exportSeconds" class="lichen-select mt-1">
+            <option value="2">2 seconds</option>
+            <option value="3">3 seconds</option>
+            <option value="5" selected>5 seconds</option>
+            <option value="10">10 seconds</option>
+            <option value="15">15 seconds</option>
+            <option value="30">30 seconds</option>
+          </select>
+        </label>
+        <label class="text-xs text-slate-300">Frame rate
+          <select id="exportFps" class="lichen-select mt-1">
+            <option value="10">10 FPS (GIF lite)</option>
+            <option value="15" selected>15 FPS</option>
+            <option value="24">24 FPS</option>
+            <option value="30">30 FPS</option>
+          </select>
+        </label>
+        <label class="text-xs text-slate-300">MP4 bitrate
+          <select id="exportBitrate" class="lichen-select mt-1">
+            <option value="8000000">8 Mbps</option>
+            <option value="16000000" selected>16 Mbps</option>
+            <option value="30000000">30 Mbps</option>
+            <option value="50000000">50 Mbps</option>
+          </select>
+        </label>
+      </div>
+      <label class="block text-xs text-slate-300">Biological growth steps per output frame
+        <div class="flex gap-3 items-center mt-1">
+          <input id="exportGrowthSteps" type="range" min="1" max="12" step="1" value="3" class="flex-1" />
+          <output id="exportGrowthVal" class="mono text-sky-300">3</output>
+        </div>
+      </label>
+      <p class="text-[11px] text-slate-400">GIF loops infinitely when played back. The lichen lifecycle itself continues forward, so its first and last frames may not be identical (this is **not** a seamless mathematical loop).</p>
+      <div class="grid grid-cols-2 gap-2">
+        <button id="exportGifBtn" class="lichen-studio-button lichen-primary">✨ Export GIF</button>
+        <button id="exportMp4Btn" class="lichen-studio-button lichen-primary">🎬 Export MP4</button>
+        <button id="exportHiresPngBtn" class="lichen-studio-button">📸 Export PNG</button>
+        <button id="cancelExportBtn" class="lichen-studio-button" disabled>Cancel Export</button>
+      </div>
+      <div id="exportStatus" role="status" aria-live="polite" class="rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-sky-200">Ready to capture.</div>
+      <p class="text-[11px] text-amber-200">Large GIFs can take substantial memory on iPhone Safari. Start with 512–1024px; use MP4 for longer/high-detail animations. MP4 needs a compatible H.264 encoder on your device.</p>
     </div>
 
     <!-- Footer Scientific Legend -->
