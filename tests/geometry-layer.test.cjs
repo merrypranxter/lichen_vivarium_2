@@ -8,7 +8,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 
-const sources = ['branch-skeletons.js','geometry-layer.js']
+const sources = ['branch-skeletons.js','rhizine-network.js','geometry-layer.js']
   .map(f=>fs.readFileSync(path.resolve(__dirname,'..',f),'utf8'));
 const sandbox={window:{}};
 for(const source of sources)vm.runInNewContext(source,sandbox,{timeout:3000});
@@ -18,7 +18,14 @@ function makeFields(){
   const f={GRID_SIZE:256,biomass:new Float32Array(N),
     ageField:new Float32Array(N),fruitingField:new Float32Array(N),
     speciesField:new Uint8Array(N),colonyIdField:new Uint8Array(N),
-    colonyOriginX:new Float32Array(256),colonyOriginY:new Float32Array(256)};
+    colonyOriginX:new Float32Array(256),colonyOriginY:new Float32Array(256),
+    rockField:new Float32Array(N),waterField:new Float32Array(N)};
+  for(let y=0;y<256;y++)for(let x=0;x<256;x++){
+    const u=x/256,v=y/256;
+    const c=Math.exp(-2200*Math.pow((v-.52)+.38*(u-.5),2));
+    f.rockField[y*256+x]=.65-.54*c+.08*Math.sin(u*41)*Math.cos(v*37);
+    f.waterField[y*256+x]=.57+.35*c;
+  }
   for(const [id,cx,cy,species,radius] of [
     [1,64,64,1,45],[2,170,170,3,48],[3,66,173,2,46]
   ]){
@@ -71,7 +78,8 @@ function makeScene(){
     branchPattern:'cladonia',branchDensity:1,branchHeight:1,
     branchCortexDetail:1.15,branchPowder:.85,
     branchFissures:.65,branchFibrils:.8,
-    basalFusion:.90,basalSpread:1,basalVolume:1,cupRise:1.25,
+    basalFusion:.90,basalSpread:1,basalVolume:1,
+    rhizineDensity:1,rhizineGrip:1.3,rhizineLength:1,cupRise:1.25,
     lobeUnfurl:1.15,morphogenesis:1,effectiveWetness:.75,
     zoom:1,panX:0,panY:0,paletteMode:1};
   const layer=sandbox.window.createLichenGeometryLayer({
@@ -203,18 +211,89 @@ test('zero attachment removes only basal geometry, leaving branches intact',()=>
     'restored root attachment after enabling fusion');
 });
 
-test('attachment spread and thickness edit GPU uniforms without mesh rebuilding',()=>{
+test('root thickness/fusion update uniforms; spread rebuilds crevice-guided rhizines',()=>{
   const x=makeScene();
   x.layer.draw(2000,x.bindings);
   const before=x.buffers.length;
-  x.params.basalSpread=1.55;
   x.params.basalVolume=.35;
   x.params.basalFusion=.55;
   x.layer.draw(2100,x.bindings);
   assert.equal(x.buffers.length,before,
-    'material/height adjustments do not regenerate static geometry');
-  const recent=x.uniforms.slice(-30);
+    'height and opacity update on GPU without mesh rebuild');
+  x.params.basalSpread=1.55;
+  x.layer.draw(2200,x.bindings);
+  assert.equal(x.buffers.length,before+1,
+    'spread re-anchors rhizine routes against real rock cracks');
+  const recent=x.uniforms.slice(-40);
   assert.ok(recent.some(([name,v])=>name==='uMeshBasalSpread'&&v===1.55));
   assert.ok(recent.some(([name,v])=>name==='uMeshBasalVolume'&&v===.35));
   assert.ok(recent.some(([name,v])=>name==='uMeshBasalFusion'&&v===.55));
+});
+
+test('rock-gripping rhizines share living holdfast origins and remain bounded',()=>{
+  const x=makeScene(),stats=x.layer.draw(2000,x.bindings);
+  assert.ok(stats.rhizines>0,'rhizines emerge from fruticose holdfast');
+  assert.ok(stats.rhizines<=15*stats.basalThalli,'Lite budget is hard capped');
+  assert.ok(stats.rhizineForks>0,'daughter rootlets branch from established fibers');
+  assert.ok(stats.rhizineSegments>stats.rhizines,'multiple physical segments per rootlet');
+  const data=x.buffers.at(-1);
+  let rootlets=0;
+  for(let i=0;i<data.length;i+=19){
+    if(data[i+5]!==5)continue;
+    rootlets++;
+    const n=Math.hypot(data[i+14],data[i+15],data[i+16]);
+    assert.ok(Math.abs(n-1)<.025,'rootlet normals are normalized');
+    assert.ok(Number.isFinite(data[i+12]) && data[i+12]>=0,
+      'growth birth threshold follows living biology');
+    assert.ok(Math.abs(data[i+2])<.15 && Math.abs(data[i+3])<.15,
+      'rootlets stay near their shared colony origin');
+  }
+  assert.ok(rootlets>100,'rootlets are true 3D tube triangles');
+});
+
+test('increasing crevice affinity selects lower rock valleys, not random decoration',()=>{
+  const f=makeFields(),anchor=[.5,.5],seed=.782;
+  const base={rockField:f.rockField,waterField:f.waterField,gridSize:256,
+    quality:'lite',density:1.4,length:1.1};
+  const loose=[],clinging=[],repeat=[];
+  const a=sandbox.window.LichenRhizines.grow(loose,anchor,seed,{...base,grip:0});
+  const b=sandbox.window.LichenRhizines.grow(clinging,anchor,seed,{...base,grip:2});
+  const c=sandbox.window.LichenRhizines.grow(repeat,anchor,seed,{...base,grip:2});
+  assert.ok(b.avgRockTip<a.avgRockTip-.015,
+    'high grip should finish in lower/wetter rock crevices');
+  assert.equal(b.roots,a.roots,'grip changes direction, not density');
+  assert.equal(b.triangles,b.segments*6,'Lite uses three-sided 3D tubes');
+  assert.equal(clinging.length,b.triangles*3*19);
+  assert.deepEqual(clinging,repeat,'terrain-guided paths must be deterministic');
+  assert.equal(b.avgRockTip,c.avgRockTip);
+});
+
+test('turning rhizines off preserves branches, lobes, cups, and basal tissue',()=>{
+  const x=makeScene();
+  const before=x.layer.draw(2000,x.bindings);
+  const n=x.buffers.length;
+  x.params.rhizineDensity=0;
+  const disabled=x.layer.draw(2100,x.bindings);
+  assert.equal(disabled.rhizines,0);
+  assert.equal(disabled.rhizineSegments,0);
+  assert.equal(disabled.basalThalli,before.basalThalli);
+  assert.equal(disabled.branchSegments,before.branchSegments);
+  assert.equal(disabled.cups,before.cups);
+  assert.equal(disabled.lobes,before.lobes);
+  assert.ok(disabled.triangles<before.triangles);
+  assert.equal(x.buffers.length,n+1,'only optional geometry rebuilds');
+  x.params.rhizineDensity=1;
+  const restored=x.layer.draw(2200,x.bindings);
+  assert.equal(restored.rhizines,before.rhizines);
+});
+
+test('Rich rhizines obey cap and never rebuild every frame',()=>{
+  const x=makeScene();
+  x.params.geometryQuality='rich';x.params.rhizineDensity=2;
+  const first=x.layer.draw(2000,x.bindings);
+  assert.ok(first.rhizines>0 && first.rhizines<=30*first.basalThalli);
+  const uploads=x.buffers.length;
+  x.layer.draw(2016,x.bindings);
+  x.layer.draw(2032,x.bindings);
+  assert.equal(x.buffers.length,uploads,'GPU sim changes do not rebuild static root paths');
 });
