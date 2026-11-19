@@ -546,6 +546,35 @@
               <input id="branchHeightSlider" type="range" min="0.4" max="2.0" step="0.05"
                 value="1" class="w-full" />
             </label>
+            <div class="rounded-lg border border-lime-700/30 bg-[#10170d]/80 p-3 space-y-3">
+              <div class="text-xs text-lime-200 font-semibold">Microscopic Cortex & Tip Anatomy</div>
+              <p class="text-[11px] text-slate-400">These textures are wrapped around each actual stem. Branch age and drying determine when cracks and reproductive patches appear.</p>
+              <label class="block text-xs text-slate-300" for="branchCortexSlider">
+                <span class="flex items-center justify-between mb-1"><span>Axial cortex ridges + wrinkles</span>
+                  <output id="branchCortexVal" class="mono text-lime-300">1.15x</output></span>
+                <input id="branchCortexSlider" type="range" min="0" max="2" step="0.05" value="1.15" class="w-full" />
+              </label>
+              <label class="block text-xs text-slate-300" for="branchPowderSlider">
+                <span class="flex items-center justify-between mb-1"><span>Powdery soralia / pale cortical patches</span>
+                  <output id="branchPowderVal" class="mono text-lime-300">0.85x</output></span>
+                <input id="branchPowderSlider" type="range" min="0" max="2" step="0.05" value="0.85" class="w-full" />
+              </label>
+              <label class="block text-xs text-slate-300" for="branchFissureSlider">
+                <span class="flex items-center justify-between mb-1"><span>Old, dry cortex fissures</span>
+                  <output id="branchFissureVal" class="mono text-lime-300">0.65x</output></span>
+                <input id="branchFissureSlider" type="range" min="0" max="2" step="0.05" value="0.65" class="w-full" />
+              </label>
+              <label class="block text-xs text-slate-300" for="branchFibrilsSlider">
+                <span class="flex items-center justify-between mb-1"><span>True 3D microscopic tip fibrils</span>
+                  <output id="branchFibrilsVal" class="mono text-lime-300">0.80x</output></span>
+                <input id="branchFibrilsSlider" type="range" min="0" max="2" step="0.1" value="0.8" class="w-full" />
+              </label>
+              <div class="grid grid-cols-2 gap-2">
+                <button id="branchVelvetPreset" class="lichen-studio-button">Velvet &amp; Bloom</button>
+                <button id="branchWeatheredPreset" class="lichen-studio-button lichen-primary">Ancient Cortex</button>
+              </div>
+              <p class="text-[10px] text-slate-500">Texture sliders update the GPU instantly. Changing fibrils rebuilds only the optional mesh; the lichen growth state is preserved.</p>
+            </div>
             <p class="text-[10px] text-slate-500">
               Designed to stay compatible with the living growth and video exporter.
               Off disables all additional geometry.
@@ -855,6 +884,10 @@
         branchPattern: 'cladonia', // real 3D dichotomous tips vs lateral-budded Ramalina
         branchDensity: 1.0,       // procedural stem count (GPU budget capped by quality)
         branchHeight: 1.0,        // true triangular tube height, independent of underlying growth
+        branchCortexDetail: 1.15,// stem-aligned ridges, micrograins, hyphal folds
+        branchPowder: 0.85,      // reproductive soralia / pale cortical patches
+        branchFissures: 0.65,    // mature dry cortex cracks
+        branchFibrils: 0.8,      // real 3D fine tip hairs, capped by mobile quality
         paletteMode: 1,         // 1: UV Biolum, 2: Opaline, 3: Alien Acid, 4: Abyssal, 0: Natural
         hueShift: 0.0,
         psyIntensity: 1.35,
@@ -2656,6 +2689,29 @@
         v => `${v.toFixed(2)}x`);
       bindSlider('branchHeightSlider', 'branchHeightVal', 'branchHeight',
         v => `${v.toFixed(2)}x`);
+      for (const [id,valId,param] of [
+        ['branchCortexSlider','branchCortexVal','branchCortexDetail'],
+        ['branchPowderSlider','branchPowderVal','branchPowder'],
+        ['branchFissureSlider','branchFissureVal','branchFissures'],
+        ['branchFibrilsSlider','branchFibrilsVal','branchFibrils']
+      ]) bindSlider(id,valId,param,v=>`${v.toFixed(2)}x`);
+      function setBranchMaterialPreset(cortex,powder,fissures,fibrils){
+        const specs=[
+          ['branchCortexDetail','branchCortexSlider','branchCortexVal',cortex],
+          ['branchPowder','branchPowderSlider','branchPowderVal',powder],
+          ['branchFissures','branchFissureSlider','branchFissureVal',fissures],
+          ['branchFibrils','branchFibrilsSlider','branchFibrilsVal',fibrils]
+        ];
+        for(const [param,id,valId,v] of specs){
+          params[param]=v;
+          document.getElementById(id).value=v;
+          document.getElementById(valId).textContent=`${v.toFixed(2)}x`;
+        }
+      }
+      document.getElementById('branchVelvetPreset').addEventListener('click',
+        ()=>setBranchMaterialPreset(1.35,1.45,0.20,1.5));
+      document.getElementById('branchWeatheredPreset').addEventListener('click',
+        ()=>setBranchMaterialPreset(1.65,0.50,1.65,0.75));
       document.getElementById('branchPatternSelect').addEventListener('change', event => {
         params.branchPattern = event.target.value === 'ramalina' ? 'ramalina' : 'cladonia';
       });
@@ -2924,7 +2980,7 @@
             if (meshStatus && (!exportPass) && nowMs-lastGeometryLabelMs>1500) {
               lastGeometryLabelMs=nowMs;
               meshStatus.textContent =
-                `3D ${params.geometryQuality} · ${meshStats.cups} cups · ${meshStats.lobes} raised lobes · ${meshStats.branchStems} branching thalli / ${meshStats.branchSegments} stem segments · ${meshStats.triangles} triangles`;
+                `3D ${params.geometryQuality} · ${meshStats.cups} cups · ${meshStats.lobes} raised lobes · ${meshStats.branchStems} branching thalli / ${meshStats.branchSegments} stem segments · ${meshStats.fibrils ?? 0} tip fibrils · ${meshStats.triangles} triangles`;
             }
           } catch (geometryDrawError) {
             // Restore the original fullscreen pipeline even if a GPU driver
