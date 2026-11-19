@@ -575,6 +575,38 @@
               </div>
               <p class="text-[10px] text-slate-500">Texture sliders update the GPU instantly. Changing fibrils rebuilds only the optional mesh; the lichen growth state is preserved.</p>
             </div>
+          <div class="rounded-lg border border-emerald-700/40 bg-[#0b1b17]/80 p-3 space-y-3">
+            <div class="text-xs font-semibold text-emerald-200">Living Holdfast & Basal Thallus</div>
+            <p class="text-[11px] text-slate-400">
+              A thin, irregular 3D thallus grows around each branching colony's attachment,
+              with a domed center, tapered rim and rock-hugging underside. Its living
+              material follows biomass, hydration and necrosis, rather than sitting
+              on top of the rock as a separate decorative disk.
+            </p>
+            <label class="block text-xs text-slate-300" for="basalFusionSlider">
+              <span class="flex items-center justify-between mb-1"><span>Attachment / fusion with rock</span>
+                <output id="basalFusionVal" class="mono text-emerald-300">90%</output></span>
+              <input id="basalFusionSlider" type="range" min="0" max="1" step="0.05"
+                     value="0.9" class="w-full"/>
+              <span class="text-[10px] text-slate-500">0 removes the extra basal shell; existing photorealistic lichen continues underneath.</span>
+            </label>
+            <label class="block text-xs text-slate-300" for="basalSpreadSlider">
+              <span class="flex items-center justify-between mb-1"><span>Radial thallus spread</span>
+                <output id="basalSpreadVal" class="mono text-emerald-300">1.00x</output></span>
+              <input id="basalSpreadSlider" type="range" min="0.5" max="1.6" step="0.05"
+                     value="1" class="w-full"/>
+            </label>
+            <label class="block text-xs text-slate-300" for="basalVolumeSlider">
+              <span class="flex items-center justify-between mb-1"><span>Living root tissue thickness</span>
+                <output id="basalVolumeVal" class="mono text-emerald-300">1.00x</output></span>
+              <input id="basalVolumeSlider" type="range" min="0.25" max="2" step="0.05"
+                     value="1" class="w-full"/>
+            </label>
+            <div class="grid grid-cols-2 gap-2">
+              <button id="basalDelicateBtn" class="lichen-studio-button">Tender Attachment</button>
+              <button id="basalAncientBtn" class="lichen-studio-button lichen-primary">Ancient Holdfast</button>
+            </div>
+          </div>
             <p class="text-[10px] text-slate-500">
               Designed to stay compatible with the living growth and video exporter.
               Off disables all additional geometry.
@@ -888,6 +920,9 @@
         branchPowder: 0.85,      // reproductive soralia / pale cortical patches
         branchFissures: 0.65,    // mature dry cortex cracks
         branchFibrils: 0.8,      // real 3D fine tip hairs, capped by mobile quality
+        basalFusion: 0.90,       // living thallus shell grows around the branch holdfast
+        basalSpread: 1.0,       // radius of attachment skirt in rock/canvas coordinates
+        basalVolume: 1.0,       // cortex thickness and physical substrate contact
         paletteMode: 1,         // 1: UV Biolum, 2: Opaline, 3: Alien Acid, 4: Abyssal, 0: Natural
         hueShift: 0.0,
         psyIntensity: 1.35,
@@ -2712,6 +2747,28 @@
         ()=>setBranchMaterialPreset(1.35,1.45,0.20,1.5));
       document.getElementById('branchWeatheredPreset').addEventListener('click',
         ()=>setBranchMaterialPreset(1.65,0.50,1.65,0.75));
+      bindSlider('basalFusionSlider','basalFusionVal','basalFusion',
+        v => `${Math.round(v*100)}%`);
+      bindSlider('basalSpreadSlider','basalSpreadVal','basalSpread',
+        v => `${v.toFixed(2)}x`);
+      bindSlider('basalVolumeSlider','basalVolumeVal','basalVolume',
+        v => `${v.toFixed(2)}x`);
+      function basalPreset(fusion,spread,volume){
+        for (const [key,slider,valId,value] of [
+          ['basalFusion','basalFusionSlider','basalFusionVal',fusion],
+          ['basalSpread','basalSpreadSlider','basalSpreadVal',spread],
+          ['basalVolume','basalVolumeSlider','basalVolumeVal',volume]
+        ]) {
+          params[key]=value;
+          document.getElementById(slider).value=value;
+          document.getElementById(valId).textContent=key==='basalFusion'
+            ? `${Math.round(value*100)}%` : `${value.toFixed(2)}x`;
+        }
+      }
+      document.getElementById('basalDelicateBtn').addEventListener('click',
+        ()=>basalPreset(0.65,0.80,0.55));
+      document.getElementById('basalAncientBtn').addEventListener('click',
+        ()=>basalPreset(1.00,1.35,1.45));
       document.getElementById('branchPatternSelect').addEventListener('change', event => {
         params.branchPattern = event.target.value === 'ramalina' ? 'ramalina' : 'cladonia';
       });
@@ -2980,7 +3037,7 @@
             if (meshStatus && (!exportPass) && nowMs-lastGeometryLabelMs>1500) {
               lastGeometryLabelMs=nowMs;
               meshStatus.textContent =
-                `3D ${params.geometryQuality} · ${meshStats.cups} cups · ${meshStats.lobes} raised lobes · ${meshStats.branchStems} branching thalli / ${meshStats.branchSegments} stem segments · ${meshStats.fibrils ?? 0} tip fibrils · ${meshStats.triangles} triangles`;
+                `3D ${params.geometryQuality} · ${meshStats.cups} cups · ${meshStats.lobes} raised lobes · ${meshStats.branchStems} branching thalli / ${meshStats.branchSegments} stem segments · ${meshStats.fibrils ?? 0} tip fibrils · ${meshStats.basalThalli ?? 0} living holdfasts · ${meshStats.triangles} triangles`;
             }
           } catch (geometryDrawError) {
             // Restore the original fullscreen pipeline even if a GPU driver
