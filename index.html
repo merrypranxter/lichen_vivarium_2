@@ -983,8 +983,13 @@
       // 2. COUPLED BIOLOGICAL PDE STEP (GROWTH -> MATURATION -> SENESCENCE -> DEATH)
       // ============================================================================
       function stepBiologicalSimulation() {
-        // Viscoelastic hydration lag: dS/dt = (H_eq - S) / tau
-        params.effectiveWetness += (params.ambientHydration - params.effectiveWetness) * 0.08;
+        // Hydration behaves like a viscoelastic living material, not an on/off switch.
+        // Wet lichen becomes turgid gradually; drying/contracting takes longer.
+        // These factors are applied per fixed biological tick, keeping response
+        // independent of the phone's display refresh rate.
+        const hydrationLag = params.ambientHydration >= params.effectiveWetness ? 0.027 : 0.017;
+        params.effectiveWetness +=
+          (params.ambientHydration - params.effectiveWetness) * hydrationLag;
 
         // Non-monotonic photosynthesis water response curve [Paper Section 5.1]:
         // Too dry = dormant; optimal hydration (~0.65-0.82) = max growth; waterlogged suprasaturation = slight depression
