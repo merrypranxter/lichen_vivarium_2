@@ -1378,7 +1378,8 @@
             ageField[i] = newAge;
 
             // 3. Mechanical & Desiccation Strain -> Permanent Areole Fracture [Engine 1 & 2]
-            const localWater = substrateEcology ? waterField[i] : w;
+            const localWater = substrateEcology && params.substrateInfluence>0
+              ? waterField[i] : w;
             const drynessStress = (1.0 - localWater) * 0.015
               * (substrateEcology ? substrateEcology.desiccation(i) : 1.0);
             const thicknessStress = newB * 0.012 * traits.crackSusceptibility * params.fractureRate;
@@ -1450,7 +1451,12 @@
           const rIdx = ry * GRID_SIZE + rx;
           if (biomass[rIdx] < 0.02 && necrosisField[rIdx] < 0.15 && nutrientField[rIdx] > 0.65) {
             const randomSpecies = Math.random() < 0.6 ? activeSpecies : Math.floor(Math.random() * 5);
-            inoculateColony(rx / GRID_SIZE, ry / GRID_SIZE, randomSpecies, 2.5, true);
+            // Poorly matched exposure/mineral conditions suppress settlement.
+            // With Terrain Influence 0, the original seeding chance is unchanged.
+            const establishment = substrateEcology
+              ? Math.min(1,substrateEcology.growthFactor(rIdx,randomSpecies)) : 1;
+            if (Math.random() < establishment)
+              inoculateColony(rx / GRID_SIZE, ry / GRID_SIZE, randomSpecies, 2.5, true);
           }
         }
       }
