@@ -10,6 +10,8 @@ on:
       - branch-skeletons.js
       - rhizine-network.js
       - substrate-ecology.js
+      - rock-weathering.js
+      - tests/rock-weathering.test.cjs
       - tests/substrate-ecology.test.cjs
       - tests/branch-skeletons.test.cjs
       - tests/geometry-layer.test.cjs
@@ -41,7 +43,7 @@ jobs:
       - name: Prepare static site (no npm build or paid host)
         run: |
           mkdir -p _site
-          cp index.html studio-runtime.js geometry-layer.js branch-skeletons.js rhizine-network.js substrate-ecology.js studio-layout.css palette-library.js _site/
+          cp index.html studio-runtime.js geometry-layer.js branch-skeletons.js rhizine-network.js substrate-ecology.js rock-weathering.js studio-layout.css palette-library.js _site/
           touch _site/.nojekyll
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
