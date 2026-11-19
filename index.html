@@ -607,6 +607,38 @@
               <button id="basalAncientBtn" class="lichen-studio-button lichen-primary">Ancient Holdfast</button>
             </div>
           </div>
+          <div class="rounded-lg border border-teal-700/40 bg-[#091d1a]/80 p-3 space-y-3">
+            <div class="text-xs font-semibold text-teal-200">Rhizine Network · Rock-Clinging Filaments</div>
+            <p class="text-[11px] text-slate-400">
+              Thin, branching 3D fungal attachment strands spread from the basal thallus.
+              They sample the existing slate-cleavage and moisture fields to seek
+              lower, wetter crevices. Their tips extend as living tissue matures.
+            </p>
+            <label class="block text-xs text-slate-300" for="rhizineDensitySlider">
+              <span class="flex items-center justify-between mb-1"><span>Rootlet density</span>
+                <output id="rhizineDensityVal" class="mono text-teal-300">1.00x</output></span>
+              <input id="rhizineDensitySlider" type="range" min="0" max="2" step="0.1"
+                     value="1" class="w-full"/>
+              <span class="block text-[10px] text-slate-500">0 disables only the rhizines. Lite caps at 15 rootlets per colony; Rich at 30.</span>
+            </label>
+            <label class="block text-xs text-slate-300" for="rhizineGripSlider">
+              <span class="flex items-center justify-between mb-1"><span>Crevice-seeking grip</span>
+                <output id="rhizineGripVal" class="mono text-teal-300">1.30x</output></span>
+              <input id="rhizineGripSlider" type="range" min="0" max="2" step="0.1"
+                     value="1.3" class="w-full"/>
+              <span class="block text-[10px] text-slate-500">Higher values steer more strongly toward the rock's actual cracks and retained moisture.</span>
+            </label>
+            <label class="block text-xs text-slate-300" for="rhizineLengthSlider">
+              <span class="flex items-center justify-between mb-1"><span>Rock-hugging reach</span>
+                <output id="rhizineLengthVal" class="mono text-teal-300">1.00x</output></span>
+              <input id="rhizineLengthSlider" type="range" min="0.35" max="1.75" step="0.05"
+                     value="1" class="w-full"/>
+            </label>
+            <div class="grid grid-cols-2 gap-2">
+              <button id="rhizineCrevicePreset" class="lichen-studio-button">Crack Crawler</button>
+              <button id="rhizineWebPreset" class="lichen-studio-button lichen-primary">Hyphal Spiderweb</button>
+            </div>
+          </div>
             <p class="text-[10px] text-slate-500">
               Designed to stay compatible with the living growth and video exporter.
               Off disables all additional geometry.
@@ -851,6 +883,7 @@
   <!-- Studio enhancements are optional; original biological engine remains standalone. -->
   <script src="./studio-runtime.js"></script>
   <script src="./branch-skeletons.js"></script>
+  <script src="./rhizine-network.js"></script>
   <script src="./geometry-layer.js"></script>
   <!-- APPLICATION SCRIPT: COUPLED PDE BIOLOGICAL ENGINE + WEBGL2 MICROFACET & RAYMARCH SHADER -->
   <script>
@@ -923,6 +956,9 @@
         basalFusion: 0.90,       // living thallus shell grows around the branch holdfast
         basalSpread: 1.0,       // radius of attachment skirt in rock/canvas coordinates
         basalVolume: 1.0,       // cortex thickness and physical substrate contact
+        rhizineDensity: 1.0,    // capped 3D rootlet count per branching holdfast
+        rhizineGrip: 1.3,       // preference for low mineral + moist crevices
+        rhizineLength: 1.0,     // how far thin rhizines extend along rock
         paletteMode: 1,         // 1: UV Biolum, 2: Opaline, 3: Alien Acid, 4: Abyssal, 0: Natural
         hueShift: 0.0,
         psyIntensity: 1.35,
@@ -2769,6 +2805,26 @@
         ()=>basalPreset(0.65,0.80,0.55));
       document.getElementById('basalAncientBtn').addEventListener('click',
         ()=>basalPreset(1.00,1.35,1.45));
+      for(const [id,val,key] of [
+        ['rhizineDensitySlider','rhizineDensityVal','rhizineDensity'],
+        ['rhizineGripSlider','rhizineGripVal','rhizineGrip'],
+        ['rhizineLengthSlider','rhizineLengthVal','rhizineLength']
+      ]) bindSlider(id,val,key,v=>`${v.toFixed(2)}x`);
+      function rhizinePreset(density,grip,length){
+        for(const [param,id,val,value] of [
+          ['rhizineDensity','rhizineDensitySlider','rhizineDensityVal',density],
+          ['rhizineGrip','rhizineGripSlider','rhizineGripVal',grip],
+          ['rhizineLength','rhizineLengthSlider','rhizineLengthVal',length]
+        ]){
+          params[param]=value;
+          document.getElementById(id).value=value;
+          document.getElementById(val).textContent=`${value.toFixed(2)}x`;
+        }
+      }
+      document.getElementById('rhizineCrevicePreset').addEventListener('click',
+        ()=>rhizinePreset(0.9,2.0,1.15));
+      document.getElementById('rhizineWebPreset').addEventListener('click',
+        ()=>rhizinePreset(1.8,1.1,1.5));
       document.getElementById('branchPatternSelect').addEventListener('change', event => {
         params.branchPattern = event.target.value === 'ramalina' ? 'ramalina' : 'cladonia';
       });
@@ -2933,7 +2989,8 @@
             gl, params,
             fields: {
               GRID_SIZE, biomass, ageField, fruitingField, speciesField,
-              colonyIdField, colonyOriginX, colonyOriginY
+              colonyIdField, colonyOriginX, colonyOriginY,
+              rockField, waterField
             },
             getYears: () => simYears
           });
@@ -3037,7 +3094,7 @@
             if (meshStatus && (!exportPass) && nowMs-lastGeometryLabelMs>1500) {
               lastGeometryLabelMs=nowMs;
               meshStatus.textContent =
-                `3D ${params.geometryQuality} · ${meshStats.cups} cups · ${meshStats.lobes} raised lobes · ${meshStats.branchStems} branching thalli / ${meshStats.branchSegments} stem segments · ${meshStats.fibrils ?? 0} tip fibrils · ${meshStats.basalThalli ?? 0} living holdfasts · ${meshStats.triangles} triangles`;
+                `3D ${params.geometryQuality} · ${meshStats.cups} cups · ${meshStats.lobes} raised lobes · ${meshStats.branchStems} branching thalli / ${meshStats.branchSegments} stem segments · ${meshStats.fibrils ?? 0} tip fibrils · ${meshStats.basalThalli ?? 0} holdfasts · ${meshStats.rhizines ?? 0} rhizines / ${meshStats.rhizineForks ?? 0} forks · ${meshStats.triangles} triangles`;
             }
           } catch (geometryDrawError) {
             // Restore the original fullscreen pipeline even if a GPU driver
