@@ -7,6 +7,7 @@ on:
       - index.html
       - studio-runtime.js
       - geometry-layer.js
+      - branch-skeletons.js
       - studio-layout.css
       - palette-library.js
       - .github/workflows/deploy-pages.yml
@@ -33,7 +34,7 @@ jobs:
       - name: Prepare static site (no npm build or paid host)
         run: |
           mkdir -p _site
-          cp index.html studio-runtime.js geometry-layer.js studio-layout.css palette-library.js _site/
+          cp index.html studio-runtime.js geometry-layer.js branch-skeletons.js studio-layout.css palette-library.js _site/
           touch _site/.nojekyll
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
