@@ -18,11 +18,11 @@
       return (state>>>0)/4294967296;
     };
   }
-  function pack(out,anchor,center,p,seed,birth,width,normal,uv){
+  function pack(out,anchor,center,p,seed,birth,width,normal,uv,kind){
     // Vertex format: 14 core floats + outward cortex normal.xyz + tube surface UV.
     // Analytic normals and axial coordinates follow the branching anatomy,
     // including narrow flattened Ramalina straps and tapered filament tips.
-    out.push(anchor[0],anchor[1],p[0],p[1],p[2],2,seed,
+    out.push(anchor[0],anchor[1],p[0],p[1],p[2],kind,seed,
       anchor[2]??anchor[0],anchor[3]??anchor[1],
       center[0],center[1],center[2],birth,width,
       normal[0],normal[1],normal[2],uv[0],uv[1]);
@@ -63,7 +63,7 @@
       const a=ring(p0,r0,i,0),b=ring(p0,r0,i+1,0);
       const c=ring(p1,r1,i,1),d=ring(p1,r1,i+1,1);
       for(const v of [a,c,b,b,c,d])
-        pack(out,anchor,p0,v.p,seed,birth,width,v.normal,v.uv);
+        pack(out,anchor,p0,v.p,seed,birth,width,v.normal,v.uv,part.fibril?3:2);
     }
   }
   function grow(out,anchor,seed,options={}) {
@@ -177,7 +177,7 @@
             tip.p1[1]+direction[1]*length*.19,
             tip.p1[2]+direction[2]*length];
           fibers.push({p0:tip.p1,p1,r0:.00031,r1:.000055,
-            birth:clamp(tip.birth+.11,0,.89),width:.16});
+            birth:clamp(tip.birth+.11,0,.89),width:.16,fibril:true});
         }
       }
     }
