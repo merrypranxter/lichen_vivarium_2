@@ -494,6 +494,36 @@
           </div>
         </div>
       </details>
+      <details class="rounded-xl border border-cyan-700/40 bg-[#0a1720]/80 p-3 space-y-3" open>
+        <summary class="cursor-pointer font-bold text-xs text-cyan-200">True 3D Geometry · optional GPU layer</summary>
+        <p class="text-[11px] text-slate-400 mt-2">
+          Real polygonal stalks, hollow goblet walls and lifted, triangulated leaf edges.
+          Their shapes unfold using the same growth/fruiting textures as the rock.
+          Toggle them without losing the existing microphotographic shader or artwork.
+        </p>
+        <div class="space-y-3 mt-3">
+          <label class="block text-xs text-slate-300" for="geometryQualitySelect">3D mesh detail
+            <select id="geometryQualitySelect" class="lichen-select mt-1">
+              <option value="off">Off · original anatomy shader only</option>
+              <option value="lite" selected>Lite · iPhone friendly</option>
+              <option value="rich">Rich · more cups and tessellation</option>
+            </select>
+          </label>
+          <label class="block text-xs text-slate-300" for="geometryDepthSlider">
+            <span class="flex items-center justify-between mb-1"><span>Raised physical height</span>
+            <output id="geometryDepthVal" class="mono text-cyan-300">1.00x</output></span>
+            <input id="geometryDepthSlider" type="range" min="0.25" max="2" step="0.05" value="1" class="w-full"/>
+          </label>
+          <label class="block text-xs text-slate-300" for="geometryTiltSlider">
+            <span class="flex items-center justify-between mb-1"><span>Silhouette / macro view angle</span>
+            <output id="geometryTiltVal" class="mono text-cyan-300">0.65</output></span>
+            <input id="geometryTiltSlider" type="range" min="0" max="1.5" step="0.05" value="0.65" class="w-full"/>
+          </label>
+          <div id="meshGeometryStatus" role="status" class="text-[11px] text-cyan-200">
+            Preparing optional 3D meshes…
+          </div>
+        </div>
+      </details>
       <div class="rounded-lg border border-slate-800 bg-slate-950/70 p-3 text-[11px] text-slate-400">
         <strong class="text-sky-300">Frame-rate independent:</strong> Life/Death simulation speed
         now advances in biological ticks per second rather than per rendered screen frame.
@@ -727,6 +757,7 @@
 
   <!-- Studio enhancements are optional; original biological engine remains standalone. -->
   <script src="./studio-runtime.js"></script>
+  <script src="./geometry-layer.js"></script>
   <!-- APPLICATION SCRIPT: COUPLED PDE BIOLOGICAL ENGINE + WEBGL2 MICROFACET & RAYMARCH SHADER -->
   <script>
     (function() {
@@ -785,6 +816,9 @@
         cupRise: 1.25,        // pixie-cup stalk height and goblet flaring
         branchEmergence: 1.15,// fruticose canopy -> twig -> tertiary filaments
         jellySwell: 1.25,     // age + hydration dependent jelly/blister volume
+        geometryQuality: 'lite', // true 3D triangle overlay; off keeps the original renderer
+        geometryDepth: 1.0,     // raised geometric height
+        geometryTilt: 0.65,     // oblique height projection; substrate remains registered
         paletteMode: 1,         // 1: UV Biolum, 2: Opaline, 3: Alien Acid, 4: Abyssal, 0: Natural
         hueShift: 0.0,
         psyIntensity: 1.35,
@@ -2578,6 +2612,17 @@
         ['branchEmergenceSlider', 'branchEmergenceVal', 'branchEmergence'],
         ['jellySwellSlider', 'jellySwellVal', 'jellySwell']
       ]) bindSlider(id, valueId, key, v => `${v.toFixed(2)}x`);
+      bindSlider('geometryDepthSlider', 'geometryDepthVal', 'geometryDepth',
+        v => `${v.toFixed(2)}x`);
+      bindSlider('geometryTiltSlider', 'geometryTiltVal', 'geometryTilt',
+        v => v.toFixed(2));
+      const geometrySelect = document.getElementById('geometryQualitySelect');
+      geometrySelect.addEventListener('change', () => {
+        params.geometryQuality = geometrySelect.value;
+        document.getElementById('meshGeometryStatus').textContent =
+          params.geometryQuality === 'off' ? '3D layer disabled — original shader only.'
+          : '3D '+params.geometryQuality+' enabled — scanning living tissue for structures.';
+      });
       function anatomyPreset(morph, lobe, cup, branch, jelly) {
         const values = { morphogenesis:morph, lobeUnfurl:lobe,
                          cupRise:cup, branchEmergence:branch, jellySwell:jelly };
@@ -2721,6 +2766,31 @@
       runFastForwardSteps(110);
       resizeCanvas();
 
+      // Independent 3D layer: a mesh compile/runtime error never interrupts
+      // the existing lichen renderer, color editor or GIF/MP4 pipeline.
+      let geometryLayer = null;
+      let lastGeometryLabelMs = -Infinity;
+      const meshStatus = document.getElementById('meshGeometryStatus');
+      if (typeof window.createLichenGeometryLayer === 'function') {
+        try {
+          geometryLayer = window.createLichenGeometryLayer({
+            gl, params,
+            fields: {
+              GRID_SIZE, biomass, ageField, fruitingField, speciesField,
+              colonyIdField, colonyOriginX, colonyOriginY
+            },
+            getYears: () => simYears
+          });
+          if (meshStatus) meshStatus.textContent='3D geometry ready — waiting for developing cups and lobes.';
+        } catch (geometryError) {
+          params.geometryQuality = 'off';
+          document.getElementById('geometryQualitySelect').value='off';
+          if (meshStatus) meshStatus.textContent =
+            'Optional 3D mesh unavailable: '+geometryError.message+'. Original lichen art still works.';
+          console.error('Optional geometry setup failed; main renderer unaffected',geometryError);
+        }
+      }
+
       let lichenExportLock = false;
       let lichenExportSteps = params.simSpeed;
       // Keep growth speed independent of monitor refresh rate (30/60/120 Hz).
@@ -2802,6 +2872,30 @@
         gl.uniform2f(uniforms.uPan, params.panX, params.panY);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+        if (geometryLayer && params.geometryQuality !== 'off') {
+          try {
+            const meshStats = geometryLayer.draw(nowMs, {
+              mainProgram: program, bioTex, auxTex, light: [lx, ly, lz]
+            });
+            if (meshStatus && (!exportPass) && nowMs-lastGeometryLabelMs>1500) {
+              lastGeometryLabelMs=nowMs;
+              meshStatus.textContent = `3D ${params.geometryQuality} · ${meshStats.cups} cups · ${meshStats.lobes} lifted lobes · ${meshStats.triangles} triangles`;
+            }
+          } catch (geometryDrawError) {
+            // Restore the original fullscreen pipeline even if a GPU driver
+            // throws mid-draw; immediately retire the optional geometry.
+            console.error('Optional geometry draw stopped:', geometryDrawError);
+            params.geometryQuality = 'off';
+            document.getElementById('geometryQualitySelect').value='off';
+            if (meshStatus) meshStatus.textContent='3D disabled after GPU error: '
+              + geometryDrawError.message + ' — original artwork preserved.';
+            try { geometryLayer.dispose(); } catch(e) {}
+            geometryLayer = null;
+            gl.bindVertexArray(null);
+            gl.useProgram(program);
+          }
+        }
         if (!exportPass) requestAnimationFrame(renderLoop);
       }
 
