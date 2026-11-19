@@ -461,6 +461,39 @@
           <button id="motionRawBtn" class="lichen-studio-button">🔬 Raw Comparison</button>
         </div>
       </div>
+      <details open class="rounded-xl border border-fuchsia-700/40 bg-fuchsia-950/15 p-3 space-y-3">
+        <summary class="cursor-pointer font-bold text-xs text-fuchsia-200">Anatomical Morphogenesis · Structures Unfolding</summary>
+        <p class="text-[11px] text-slate-400 mt-2">
+          Growth-stage-driven 2.5D relief: lobes lift, branching thalli develop fine tips, scyphi grow stalks before flaring into hollow cups, and hydrated lichen swells. The geometry follows actual biomass, tissue age, fruiting, and water—not a looping sine-wave wobble.
+        </p>
+        <div class="space-y-3 mt-3">
+          <label class="block text-xs text-slate-300" for="morphogenesisSlider">
+            <span class="flex items-center justify-between mb-1"><strong>Developmental Unfolding</strong><output id="morphogenesisVal" class="mono text-fuchsia-300">100%</output></span>
+            <input id="morphogenesisSlider" type="range" min="0" max="1" step="0.05" value="1" class="w-full"/>
+            <span class="text-[10px] text-slate-500">0 = original static shapes, 100% = staged emergence</span>
+          </label>
+          <label class="block text-xs text-slate-300" for="lobeUnfurlSlider">
+            <span class="flex items-center justify-between mb-1"><span>🍃 Lobe edge lift & curl</span><output id="lobeUnfurlVal" class="mono text-fuchsia-300">1.15x</output></span>
+            <input id="lobeUnfurlSlider" type="range" min="0" max="2" step="0.05" value="1.15" class="w-full"/>
+          </label>
+          <label class="block text-xs text-slate-300" for="cupRiseSlider">
+            <span class="flex items-center justify-between mb-1"><span>🏺 Pixie cup stalk → hollow flare</span><output id="cupRiseVal" class="mono text-fuchsia-300">1.25x</output></span>
+            <input id="cupRiseSlider" type="range" min="0" max="2" step="0.05" value="1.25" class="w-full"/>
+          </label>
+          <label class="block text-xs text-slate-300" for="branchEmergenceSlider">
+            <span class="flex items-center justify-between mb-1"><span>🌿 Branch tip extension & fine ramification</span><output id="branchEmergenceVal" class="mono text-fuchsia-300">1.15x</output></span>
+            <input id="branchEmergenceSlider" type="range" min="0" max="2" step="0.05" value="1.15" class="w-full"/>
+          </label>
+          <label class="block text-xs text-slate-300" for="jellySwellSlider">
+            <span class="flex items-center justify-between mb-1"><span>💧 Hydration blisters & jelly swell</span><output id="jellySwellVal" class="mono text-fuchsia-300">1.25x</output></span>
+            <input id="jellySwellSlider" type="range" min="0" max="2" step="0.05" value="1.25" class="w-full"/>
+          </label>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="morphNaturalBtn" class="lichen-studio-button">🌱 Subtle Biology</button>
+            <button id="morphSpectacularBtn" class="lichen-studio-button lichen-primary">🪄 Dramatic Unfolding</button>
+          </div>
+        </div>
+      </details>
       <div class="rounded-lg border border-slate-800 bg-slate-950/70 p-3 text-[11px] text-slate-400">
         <strong class="text-sky-300">Frame-rate independent:</strong> Life/Death simulation speed
         now advances in biological ticks per second rather than per rendered screen frame.
@@ -747,6 +780,11 @@
         sporeRate: 0.35,
         motionSoftness: 0.75,  // visual tissue interpolation, independent of growth simulation
         frontCreep: 1.25,      // deterministic continuous front biomass accumulation
+        morphogenesis: 1.0,   // enable stage-dependent visible anatomy in the relief shader
+        lobeUnfurl: 1.15,     // unfolding + desiccation curling of foliose lobe tips
+        cupRise: 1.25,        // pixie-cup stalk height and goblet flaring
+        branchEmergence: 1.15,// fruticose canopy -> twig -> tertiary filaments
+        jellySwell: 1.25,     // age + hydration dependent jelly/blister volume
         paletteMode: 1,         // 1: UV Biolum, 2: Opaline, 3: Alien Acid, 4: Abyssal, 0: Natural
         hueShift: 0.0,
         psyIntensity: 1.35,
@@ -1253,6 +1291,11 @@
         uniform float uSssStrength;
         uniform float uParallaxStrength;
         uniform float uMacroOptics;
+        uniform float uMorphogenesis;
+        uniform float uLobeUnfurl;
+        uniform float uCupRise;
+        uniform float uBranchEmergence;
+        uniform float uJellySwell;
         uniform bool uGrayscaleProof;
         uniform float uZoom;
         uniform vec2 uPan;
@@ -1543,8 +1586,13 @@
             float shingleShelf = smoothstep(0.0, 0.13, shingleFract) * (1.0 - 0.45 * shingleFract);
             float lobeTipLip = smoothstep(0.0, 0.16, shingleFract) * (1.0 - smoothstep(0.16, 0.36, shingleFract));
 
-            // Pale lower cortex / raised lip rim visible right at the curled leading edge of each shingle
+            // Pale lower cortex appears as the lobe edge progressively lifts off its substrate.
+            float folioseMaturity = smoothstep(0.08, 0.62, ts.biomass)
+                                  * smoothstep(0.014, 0.24, ts.age);
+            float tipUnfold = lobeTipLip * lobeSinus * folioseMaturity;
             ts.medullaExposure = lobeTipLip * (0.35 + 0.35 * (1.0 - uWetness)) * lobeSinus;
+            ts.medullaExposure = max(ts.medullaExposure,
+              tipUnfold * uMorphogenesis * uLobeUnfurl * 0.52);
 
             // Dark root-like rhizines & marginal cilia peeking out from underneath the outer margin & lobe sinuses
             ts.rhizineFringe = outerZone * (1.0 - lobeSinus * 0.65) * step(0.32, hyphalStrands);
@@ -1558,11 +1606,19 @@
             // Internal algal photobiont layer showing through wet depressed faveolae pockets
             ts.photobiontGlow = (1.0 - netRidges) * lobeSinus * uWetness;
 
-            // Desiccation curling: free margins and lobe tips curl sharply upward when dry [PubMed 16804701]
+            // Two-stage foliose unfolding: an anchored lobe sheet thickens first,
+            // then its unsupported tip rises and curls when sufficiently mature.
+            // Drying intensifies the curl; moisture relaxes it through the existing
+            // lagged hydration field. No animation oscillators or camera shaking.
             float edgeMargin = smoothstep(0.08, 0.32, ts.biomass) * (1.0 - smoothstep(0.32, 0.68, ts.biomass));
             float dryCurl = (1.0 - uWetness) * (edgeMargin * 0.40 + lobeTipLip * 0.25);
-
-            morphoRelief = (0.32 + shingleShelf * 0.30 + foveolateRelief + dryCurl) * (0.30 + 0.70 * lobeSinus);
+            float developingCurl = folioseMaturity * uLobeUnfurl *
+              (lobeTipLip * 0.33 + edgeMargin * 0.21) *
+              (0.36 + 0.64 * (1.0 - uWetness));
+            float stagedCurl = mix(dryCurl, dryCurl * (0.45 + 0.55 * folioseMaturity)
+                                            + developingCurl, uMorphogenesis);
+            morphoRelief = (0.32 + shingleShelf * 0.30 + foveolateRelief + stagedCurl)
+              * (0.30 + 0.70 * lobeSinus);
 
             // Soralia & pseudocyphellae: pale powdery eruptions splitting open along mature ridge crests
             float ridgeCrest = smoothstep(0.60, 0.85, netRidges) * smoothstep(0.20, 0.62, ts.age);
@@ -1598,6 +1654,21 @@
             float normR3 = clamp(abs(wFine.w - 0.03) / 0.16, 0.0, 1.0);
             float fineTube = sqrt(max(0.0, 1.0 - normR3 * normR3)) * 0.36;
 
+            // Fruticose morphogenesis: trunk -> secondary forks -> fine filaments.
+            // At any point the local biomass and age control the material stage.
+            // Existing Worley tubes supply the spatial structure: no new noise passes.
+            float branchStage = smoothstep(0.07, 0.67, ts.biomass) *
+                                smoothstep(0.012, 0.24, ts.age);
+            branchStage = clamp(branchStage * uBranchEmergence, 0.0, 1.0);
+            float trunkScale = mix(1.0, mix(0.30, 1.0, branchStage), uMorphogenesis);
+            float secondaryScale = mix(1.0, mix(0.04, 1.0,
+              smoothstep(0.18, 0.83, branchStage)), uMorphogenesis);
+            float tertiaryScale = mix(1.0, mix(0.0, 1.0,
+              smoothstep(0.42, 0.98, branchStage)), uMorphogenesis);
+            canopyTube *= trunkScale;
+            underTube *= secondaryScale;
+            fineTube *= tertiaryScale;
+
             // Ramalina menziesii developmental perforations (fenestrations between strands)
             float combinedTubes = max(canopyTube * 0.94, max(underTube, fineTube));
             float webFibrils = ridgedFbm(mUv * 150.0) * 0.13 * smoothstep(0.05, 0.3, combinedTubes);
@@ -1609,9 +1680,14 @@
 
             // Erect dichotomous branch tips / dark pycnidia nodules on canopy forks
             float forkNodes = smoothstep(0.14, 0.02, wCanopy.x) * canopyTube;
-            ts.isidiaTips = forkNodes * ts.age;
-
-            morphoRelief = combinedTubes * (0.68 + 0.42 * ts.age) + webFibrils + forkNodes * 0.20;
+            float forkMaturity = mix(1.0, smoothstep(0.52, 0.97, branchStage),
+                                     uMorphogenesis);
+            ts.isidiaTips = forkNodes * ts.age * forkMaturity;
+            float growingTip = smoothstep(0.09, 0.40, ts.biomass) *
+              (1.0 - smoothstep(0.46, 0.76, ts.biomass)) * canopyTube *
+              uMorphogenesis * uBranchEmergence * 0.13;
+            morphoRelief = combinedTubes * (0.68 + 0.42 * ts.age)
+                           + webFibrils + forkNodes * 0.20 * forkMaturity + growingTip;
             cupSuppression = 0.30;
           }
 
@@ -1641,8 +1717,18 @@
 
             // ERECT HOLLOW PIXIE CUPS (Scyphi / Podetia) with marginal coccifera fruiting nodules!
             vec4 cupGrid = worley(mUv * 22.0 + 5.3, 0.78);
-            float maxCupR = 0.35 * clamp(ts.fruiting * 1.35 + ts.age * 0.3, 0.0, 1.0);
-            if (ts.fruiting > 0.10 && cupGrid.z > 0.24 && cupGrid.x < maxCupR) {
+            // The original model jumped directly to a mature hollow goblet.
+            // Now the center grows a slender podetium stalk, then the rim flares
+            // and acquires nodules as the fruiting field matures.
+            float cupStage = smoothstep(0.016, 0.94, ts.fruiting)
+                           * smoothstep(0.012, 0.22, ts.age);
+            float stemStage = smoothstep(0.0, 0.48, cupStage);
+            float flareStage = smoothstep(0.22, 0.95, cupStage);
+            float originalCupR = 0.35 * clamp(ts.fruiting * 1.35 + ts.age * 0.3, 0.0, 1.0);
+            float emergingCupR = (0.045 + 0.305 * cupStage);
+            float maxCupR = mix(originalCupR, emergingCupR, uMorphogenesis);
+            if (ts.fruiting > mix(0.10, 0.016, uMorphogenesis)
+                && cupGrid.z > 0.24 && cupGrid.x < maxCupR) {
               float nr = cupGrid.x / max(0.001, maxCupR);
               // Flared goblet outer stalk wall rising steeply up to nr = 0.76, then plunging into a deep hollow funnel
               float outerGoblet = smoothstep(1.0, 0.68, nr);
@@ -1653,13 +1739,24 @@
               float crownAngle = atan(cupGrid.y - cupGrid.x, cupGrid.w) * 11.0 + cupGrid.z * 25.0;
               float rimNodules = rimRing * pow(0.5 + 0.5 * sin(noise(mUv * 140.0) * 12.0 + crownAngle), 2.0);
 
-              float gobletHeight = outerGoblet * 0.64 + rimRing * 0.28 + rimNodules * 0.24 - innerFunnel * 0.45;
-              // Cortical warts & soredia granules coating the exterior and interior of the goblet
-              gobletHeight += ridgedFbm(mUv * 185.0) * 0.08 * outerGoblet;
+              float originalGobletHeight = outerGoblet * 0.64 + rimRing * 0.28
+                                         + rimNodules * 0.24 - innerFunnel * 0.45;
+              // Cortical warts & soredia granules coating the exterior and interior.
+              originalGobletHeight += ridgedFbm(mUv * 185.0) * 0.08 * outerGoblet;
+              float stalkHeight = (1.0 - smoothstep(0.17, 0.68, nr)) * 0.46 * stemStage;
+              float flaredHeight = (outerGoblet * 0.62 + rimRing * 0.36
+                                   + rimNodules * 0.25 - innerFunnel * 0.43)
+                                 * flareStage;
+              float stagedGoblet = max(stalkHeight, flaredHeight)
+                                  * max(0.0, uCupRise) * (0.16 + 0.84 * cupStage);
+              float gobletHeight = mix(originalGobletHeight, stagedGoblet, uMorphogenesis);
 
-              morphoRelief = max(morphoRelief * 0.35, gobletHeight);
-              ts.apotheciaRim = clamp(rimRing * 0.75 + innerFunnel * 0.5, 0.0, 1.0);
-              ts.apotheciaCup = clamp(rimNodules * 1.4, 0.0, 1.0);
+              morphoRelief = max(morphoRelief * mix(0.35, 0.95, uMorphogenesis), gobletHeight);
+              float reproductiveReveal = mix(1.0, flareStage, uMorphogenesis);
+              ts.apotheciaRim = clamp((rimRing * 0.75 + innerFunnel * 0.5)
+                                      * reproductiveReveal, 0.0, 1.0);
+              ts.apotheciaCup = clamp(rimNodules * 1.4
+                                      * reproductiveReveal, 0.0, 1.0);
               cupSuppression = 0.0;
             }
           }
@@ -1680,7 +1777,13 @@
 
             // Viscoelastic hydration response: swells into thick turgid translucent domes when wet;
             // shrinks into sharp, wrinkled coriaceous folds when dry
-            float swelling = mix(0.46, 1.42, uWetness);
+            float originalSwelling = mix(0.46, 1.42, uWetness);
+            float jellyMaturity = smoothstep(0.035, 0.55, ts.biomass)
+                                * smoothstep(0.008, 0.19, ts.age);
+            float hydratedSwelling = mix(0.30, 1.68, uWetness)
+                                   * mix(0.36, 1.0, jellyMaturity)
+                                   * max(0.0, uJellySwell);
+            float swelling = mix(originalSwelling, hydratedSwelling, uMorphogenesis);
             float dryShrinkFolds = (1.0 - uWetness) * ridgedFbm(mUv * 78.0) * 0.30;
 
             ts.photobiontGlow = (dome1 + dome2 * 0.5) * uWetness;
@@ -1693,7 +1796,10 @@
           }
 
           // 3. Shared Lecanorine Apothecia (Raised Crenulate Thalline Rim + Concave Spore Hymenium Disc)
-          if (cupSuppression > 0.05 && ts.fruiting > 0.14) {
+          float commonCupStage = smoothstep(0.04, 0.72, ts.fruiting)
+                               * smoothstep(0.015, 0.18, ts.age);
+          if (cupSuppression > 0.05 &&
+              ts.fruiting > mix(0.14, 0.035, uMorphogenesis)) {
             vec4 apCell = worley(mUv * 28.0 + 11.3, 0.82);
             float cupRadius = (0.18 + 0.15 * apCell.z) * clamp(ts.fruiting * 1.35, 0.0, 1.0) * cupSuppression;
             float r = apCell.x;
@@ -1706,9 +1812,10 @@
               float discMask = (1.0 - smoothstep(0.0, 0.65, normR));
               float bowlDepth = sqrt(max(0.0, 1.0 - (normR / 0.65) * (normR / 0.65))) * 0.19;
 
-              morphoRelief += rimMask * 0.38 - discMask * bowlDepth;
-              ts.apotheciaCup = clamp(discMask, 0.0, 1.0);
-              ts.apotheciaRim = clamp(rimMask, 0.0, 1.0);
+              float gradualCup = mix(1.0, commonCupStage, uMorphogenesis);
+              morphoRelief += (rimMask * 0.38 - discMask * bowlDepth) * gradualCup;
+              ts.apotheciaCup = clamp(discMask * gradualCup, 0.0, 1.0);
+              ts.apotheciaRim = clamp(rimMask * gradualCup, 0.0, 1.0);
             }
           }
 
@@ -2132,6 +2239,11 @@
         uSssStrength: gl.getUniformLocation(program, 'uSssStrength'),
         uParallaxStrength: gl.getUniformLocation(program, 'uParallaxStrength'),
         uMacroOptics: gl.getUniformLocation(program, 'uMacroOptics'),
+        uMorphogenesis: gl.getUniformLocation(program, 'uMorphogenesis'),
+        uLobeUnfurl: gl.getUniformLocation(program, 'uLobeUnfurl'),
+        uCupRise: gl.getUniformLocation(program, 'uCupRise'),
+        uBranchEmergence: gl.getUniformLocation(program, 'uBranchEmergence'),
+        uJellySwell: gl.getUniformLocation(program, 'uJellySwell'),
         uGrayscaleProof: gl.getUniformLocation(program, 'uGrayscaleProof'),
         uZoom: gl.getUniformLocation(program, 'uZoom'),
         uPan: gl.getUniformLocation(program, 'uPan')
@@ -2449,6 +2561,34 @@
         v => `${Math.round(v * 100)}%`);
       bindSlider('frontCreepSlider', 'frontCreepVal', 'frontCreep',
         v => `${v.toFixed(2)}x`);
+      bindSlider('morphogenesisSlider', 'morphogenesisVal', 'morphogenesis',
+        v => `${Math.round(v * 100)}%`);
+      for (const [id, valueId, key] of [
+        ['lobeUnfurlSlider', 'lobeUnfurlVal', 'lobeUnfurl'],
+        ['cupRiseSlider', 'cupRiseVal', 'cupRise'],
+        ['branchEmergenceSlider', 'branchEmergenceVal', 'branchEmergence'],
+        ['jellySwellSlider', 'jellySwellVal', 'jellySwell']
+      ]) bindSlider(id, valueId, key, v => `${v.toFixed(2)}x`);
+      function anatomyPreset(morph, lobe, cup, branch, jelly) {
+        const values = { morphogenesis:morph, lobeUnfurl:lobe,
+                         cupRise:cup, branchEmergence:branch, jellySwell:jelly };
+        const controls = {
+          morphogenesis: 'morphogenesisSlider', lobeUnfurl: 'lobeUnfurlSlider',
+          cupRise: 'cupRiseSlider', branchEmergence: 'branchEmergenceSlider',
+          jellySwell: 'jellySwellSlider'
+        };
+        for (const [key, value] of Object.entries(values)) {
+          params[key] = value;
+          const element = document.getElementById(controls[key]);
+          element.value = value;
+          document.getElementById(controls[key].replace('Slider','Val')).textContent =
+            key === 'morphogenesis' ? `${Math.round(value * 100)}%` : `${value.toFixed(2)}x`;
+        }
+      }
+      document.getElementById('morphNaturalBtn').addEventListener('click',
+        () => anatomyPreset(1, 0.85, 0.90, 0.85, 0.90));
+      document.getElementById('morphSpectacularBtn').addEventListener('click',
+        () => anatomyPreset(1, 1.70, 1.65, 1.60, 1.70));
       const motionPreset = (softness, creep) => {
         params.motionSoftness = softness;
         params.frontCreep = creep;
@@ -2643,6 +2783,11 @@
         gl.uniform1f(uniforms.uSssStrength, params.sssStrength);
         gl.uniform1f(uniforms.uParallaxStrength, params.parallaxStrength);
         gl.uniform1f(uniforms.uMacroOptics, params.macroOptics);
+        gl.uniform1f(uniforms.uMorphogenesis, params.morphogenesis);
+        gl.uniform1f(uniforms.uLobeUnfurl, params.lobeUnfurl);
+        gl.uniform1f(uniforms.uCupRise, params.cupRise);
+        gl.uniform1f(uniforms.uBranchEmergence, params.branchEmergence);
+        gl.uniform1f(uniforms.uJellySwell, params.jellySwell);
         gl.uniform1i(uniforms.uGrayscaleProof, params.grayscaleProof ? 1 : 0);
         gl.uniform1f(uniforms.uZoom, params.zoom);
         gl.uniform2f(uniforms.uPan, params.panX, params.panY);
