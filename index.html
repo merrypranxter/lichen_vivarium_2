@@ -1608,7 +1608,10 @@
         uniform sampler2D uAuxTex; // R: species, G: fruiting, B: radialAngle, A: colonyHash
         uniform sampler2D uColorRamp; // Full fidelity original palette stops, packed as continuous RGB ramp
         uniform sampler2D uSubstrateMap; // R water, G mineral, B rock crevices, A exposure
-        uniform int uSubstrateView; // 0 normal, 1-4 diagnostic terrain overlays
+        uniform int uSubstrateView; // 0 normal; 1-4 terrain, 5-8 geological history
+        uniform sampler2D uWeatheringMap; // R etched, G mineral oxide, B organic, A scar memory
+        uniform float uWeatheringRelief;
+        uniform float uWeatheringPigment;
 
         uniform float uTime;
         uniform float uWetness;
@@ -1775,7 +1778,14 @@
           float crevice = exp(-crackDist * 75.0);
           float microPits = pow(noise(uv * 240.0), 3.0) * 0.035;
 
-          return (mainCleavage * 0.26 + n2 * 0.11 + quartzVein * 0.045 + n3 * 0.025 - crevice * 0.24 - microPits);
+          // Mineral dissolution leaves a real shallow heightfield depression.
+          // Skip texture fetch entirely when the effect is disabled.
+          float etchedDepth=0.0;
+          if(uWeatheringRelief>0.001)
+            etchedDepth=texture(uWeatheringMap,clamp(uv,0.002,0.998)).r;
+          return (mainCleavage * .26+n2*.11+quartzVein*.045+n3*.025
+                   -crevice*.24-microPits
+                   -etchedDepth*.042*uWeatheringRelief);
         }
 
         // ------------------------------------------------------------------------
@@ -2270,6 +2280,17 @@
           vec3 drySlate = mix(vec3(0.13, 0.14, 0.16), vec3(0.26, 0.27, 0.30), ts.rockHeight * 2.2 + rockGrain * 0.16);
           drySlate = mix(drySlate, vec3(0.40, 0.21, 0.11), rustVein * 0.60);
           drySlate = mix(drySlate, vec3(0.68, 0.67, 0.64), quartzVein * 0.65);
+          // Persistent mineral and organic stains outlive the colony.
+          if(uWeatheringPigment>0.001){
+            vec4 scar=texture(uWeatheringMap,uv);
+            float oxide=clamp(scar.g*uWeatheringPigment,0.0,1.0);
+            float organic=clamp(scar.b*uWeatheringPigment,0.0,1.0);
+            float etched=clamp(scar.r*uWeatheringPigment,0.0,1.0);
+            drySlate=mix(drySlate,vec3(.54,.26,.13),oxide*.76);
+            drySlate=mix(drySlate,vec3(.10,.19,.20),organic*.62);
+            drySlate*=1.0-.30*etched;
+            drySlate+=vec3(.11,.05,.13)*scar.a*uWeatheringPigment*.24;
+          }
 
           // Damp capillary halo & organic stain around thallus perimeter
           float neighborBio = texture(uBioTex, uv + vec2(0.005)).r + texture(uBioTex, uv - vec2(0.005)).r;
@@ -2513,19 +2534,25 @@
           // Optional science-eye map of the SAME physical fields that steer
           // colony expansion. Overlay rather than replacing the artwork.
           if(uSubstrateView>0) {
-            vec4 habitat=texture(uSubstrateMap, uv);
-            float site=uSubstrateView==1 ? habitat.r :
-                       (uSubstrateView==2 ? habitat.g :
-                       (uSubstrateView==3 ? habitat.b : habitat.a));
-            vec3 lowColor=uSubstrateView==1 ? vec3(.20,.07,.20) :
-                          (uSubstrateView==2 ? vec3(.10,.13,.19) :
-                          (uSubstrateView==3 ? vec3(.08,.14,.16) :
-                                               vec3(.06,.13,.25)));
-            vec3 highColor=uSubstrateView==1 ? vec3(.08,.93,1.0) :
-                           (uSubstrateView==2 ? vec3(1.0,.29,.76) :
-                           (uSubstrateView==3 ? vec3(.87,.98,.17) :
-                                                vec3(1.0,.49,.10)));
-            vec3 heat=mix(lowColor,highColor,smoothstep(0.03,.95,site));
+            bool geological=uSubstrateView>4;
+            vec4 habitat=geological ? texture(uWeatheringMap,uv)
+                                    : texture(uSubstrateMap,uv);
+            int channel=geological?uSubstrateView-4:uSubstrateView;
+            float site=channel==1 ? habitat.r :
+                       (channel==2 ? habitat.g :
+                       (channel==3 ? habitat.b : habitat.a));
+            vec3 lowColor=geological ? vec3(.07,.08,.14) :
+              (channel==1 ? vec3(.20,.07,.20) :
+              (channel==2 ? vec3(.10,.13,.19) :
+              (channel==3 ? vec3(.08,.14,.16) : vec3(.06,.13,.25))));
+            vec3 highColor=geological
+              ? (channel==1 ? vec3(.78,.48,1.0) :
+                (channel==2 ? vec3(1.0,.50,.16) :
+                (channel==3 ? vec3(.20,.98,.79) : vec3(.94,.16,.79))))
+              : (channel==1 ? vec3(.08,.93,1.0) :
+                (channel==2 ? vec3(1.0,.29,.76) :
+                (channel==3 ? vec3(.87,.98,.17) : vec3(1.0,.49,.10))));
+            vec3 heat=mix(lowColor,highColor,smoothstep(0.005,.75,site));
             float blend=.82*(1.0-.42*smoothstep(.12,.62,ts.biomass));
             finalLinear=mix(finalLinear,heat,blend);
           }
