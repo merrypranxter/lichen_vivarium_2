@@ -1536,6 +1536,8 @@
         uniform sampler2D uBioTex; // R: biomass, G: normAge, B: crack, A: necrosis
         uniform sampler2D uAuxTex; // R: species, G: fruiting, B: radialAngle, A: colonyHash
         uniform sampler2D uColorRamp; // Full fidelity original palette stops, packed as continuous RGB ramp
+        uniform sampler2D uSubstrateMap; // R water, G mineral, B rock crevices, A exposure
+        uniform int uSubstrateView; // 0 normal, 1-4 diagnostic terrain overlays
 
         uniform float uTime;
         uniform float uWetness;
@@ -2437,6 +2439,25 @@
             finalLinear = vec3(g);
           }
 
+          // Optional science-eye map of the SAME physical fields that steer
+          // colony expansion. Overlay rather than replacing the artwork.
+          if(uSubstrateView>0) {
+            vec4 habitat=texture(uSubstrateMap, uv);
+            float site=uSubstrateView==1 ? habitat.r :
+                       (uSubstrateView==2 ? habitat.g :
+                       (uSubstrateView==3 ? habitat.b : habitat.a));
+            vec3 lowColor=uSubstrateView==1 ? vec3(.20,.07,.20) :
+                          (uSubstrateView==2 ? vec3(.10,.13,.19) :
+                          (uSubstrateView==3 ? vec3(.08,.14,.16) :
+                                               vec3(.06,.13,.25)));
+            vec3 highColor=uSubstrateView==1 ? vec3(.08,.93,1.0) :
+                           (uSubstrateView==2 ? vec3(1.0,.29,.76) :
+                           (uSubstrateView==3 ? vec3(.87,.98,.17) :
+                                                vec3(1.0,.49,.10)));
+            vec3 heat=mix(lowColor,highColor,smoothstep(0.03,.95,site));
+            float blend=.82*(1.0-.42*smoothstep(.12,.62,ts.biomass));
+            finalLinear=mix(finalLinear,heat,blend);
+          }
           fragColor = vec4(finalLinear, 1.0);
         }
       `;
@@ -2485,12 +2506,16 @@
 
       const bioTex = createFieldTexture(0);
       const auxTex = createFieldTexture(1);
+      const substrateTex = createFieldTexture(3);
+      const substrateTexData = new Uint8Array(NUM_CELLS * 4);
 
       // Uniform Locations
       const uniforms = {
         uBioTex: gl.getUniformLocation(program, 'uBioTex'),
         uAuxTex: gl.getUniformLocation(program, 'uAuxTex'),
         uColorRamp: gl.getUniformLocation(program, 'uColorRamp'),
+        uSubstrateMap: gl.getUniformLocation(program, 'uSubstrateMap'),
+        uSubstrateView: gl.getUniformLocation(program, 'uSubstrateView'),
         uTime: gl.getUniformLocation(program, 'uTime'),
         uWetness: gl.getUniformLocation(program, 'uWetness'),
         uPaletteMode: gl.getUniformLocation(program, 'uPaletteMode'),
@@ -2517,6 +2542,7 @@
       gl.uniform1i(uniforms.uBioTex, 0);
       gl.uniform1i(uniforms.uAuxTex, 1);
       if (uniforms.uColorRamp !== null) gl.uniform1i(uniforms.uColorRamp, 2);
+      if (uniforms.uSubstrateMap !== null) gl.uniform1i(uniforms.uSubstrateMap, 3);
 
       // Resize Canvas to match DPI
       function resizeCanvas() {
@@ -2826,6 +2852,34 @@
         v => `${Math.round(v * 100)}%`);
       bindSlider('frontCreepSlider', 'frontCreepVal', 'frontCreep',
         v => `${v.toFixed(2)}x`);
+      for (const [id,val,key] of [
+        ['substrateInfluenceSlider','substrateInfluenceVal','substrateInfluence'],
+        ['substrateRetentionSlider','substrateRetentionVal','substrateRetention'],
+        ['substrateExposureSlider','substrateExposureVal','substrateExposure'],
+        ['substrateCreviceSlider','substrateCreviceVal','substrateCreviceBias'],
+        ['substrateMineralSlider','substrateMineralVal','substrateMineralFlux']
+      ]) bindSlider(id,val,key,v=>`${v.toFixed(2)}x`);
+      const substrateViewSelect=document.getElementById('substrateViewSelect');
+      substrateViewSelect.addEventListener('change',()=>{
+        params.substrateView = Math.max(0,Math.min(4,Number(substrateViewSelect.value)||0));
+      });
+      function substratePreset(influence,retention,exposure,crevice,mineral){
+        for(const [param,id,val,setting] of [
+          ['substrateInfluence','substrateInfluenceSlider','substrateInfluenceVal',influence],
+          ['substrateRetention','substrateRetentionSlider','substrateRetentionVal',retention],
+          ['substrateExposure','substrateExposureSlider','substrateExposureVal',exposure],
+          ['substrateCreviceBias','substrateCreviceSlider','substrateCreviceVal',crevice],
+          ['substrateMineralFlux','substrateMineralSlider','substrateMineralVal',mineral]
+        ]) {
+          params[param]=setting;
+          document.getElementById(id).value=setting;
+          document.getElementById(val).textContent=`${setting.toFixed(2)}x`;
+        }
+      }
+      document.getElementById('substrateWetPreset').addEventListener('click',
+        ()=>substratePreset(1.30,1.85,.35,1.65,.80));
+      document.getElementById('substrateHarshPreset').addEventListener('click',
+        ()=>substratePreset(1.35,.35,1.80,.75,1.65));
       bindSlider('morphogenesisSlider', 'morphogenesisVal', 'morphogenesis',
         v => `${Math.round(v * 100)}%`);
       for (const [id, valueId, key] of [
@@ -3103,6 +3157,7 @@
       const BASE_BIO_TICKS_PER_SECOND = 20;
       let previousFrameMs = 0;
       let growthAccumulatorMs = 0;
+      let lastSubstrateStatusMs = -Infinity;
       function renderLoop(nowMs, exportPass = false, advance = true, exportDeltaMs = 0) {
         // Pause realtime stepping during frame-perfect exports; don't accumulate
         // wall-clock delays that would cause a giant jump after encoding.
@@ -3153,6 +3208,15 @@
         gl.bindTexture(gl.TEXTURE_2D, auxTex);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, GRID_SIZE, GRID_SIZE, 0, gl.RGBA, gl.UNSIGNED_BYTE, renderAuxTexData);
 
+        // A diagnostic map uses an additional 256² RGBA8 texture only while
+        // explicitly enabled; normal art/export avoids the extra upload.
+        if (params.substrateView>0 && substrateEcology) {
+          substrateEcology.encodeRGBA(substrateTexData);
+          gl.activeTexture(gl.TEXTURE3);
+          gl.bindTexture(gl.TEXTURE_2D, substrateTex);
+          gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,GRID_SIZE,GRID_SIZE,0,
+                        gl.RGBA,gl.UNSIGNED_BYTE,substrateTexData);
+        }
         // Compute 3D directional light vector from Azimuth & Elevation
         const cosEl = Math.cos(params.lightElevation);
         const lx = Math.cos(params.lightAzimuth) * cosEl;
@@ -3161,6 +3225,7 @@
 
         gl.uniform1f(uniforms.uTime, nowMs * 0.001);
         gl.uniform1f(uniforms.uWetness, params.effectiveWetness);
+        gl.uniform1i(uniforms.uSubstrateView,substrateEcology ? params.substrateView : 0);
         gl.uniform1i(uniforms.uPaletteMode, params.paletteMode);
         gl.uniform1f(uniforms.uHueShift, params.hueShift);
         gl.uniform1f(uniforms.uPsyIntensity, params.psyIntensity);
@@ -3182,6 +3247,17 @@
         gl.uniform2f(uniforms.uPan, params.panX, params.panY);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+        if (!exportPass && nowMs-lastSubstrateStatusMs>2500) {
+          lastSubstrateStatusMs=nowMs;
+          const status=document.getElementById('substrateStats');
+          if(status) {
+            if(substrateEcology) {
+              const m=substrateEcology.statistics();
+              status.textContent=`Mean water ${Math.round(m.meanWater*100)}% · crevice ${Math.round(m.meanCrevice*100)}% · mineral ${Math.round(m.meanMineral*100)}% · exposure ${Math.round(m.meanExposure*100)}%`;
+            } else status.textContent='Original rock model in use — substrate enhancement unavailable.';
+          }
+        }
 
         if (geometryLayer && params.geometryQuality !== 'off') {
           try {
