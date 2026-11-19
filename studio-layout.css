@@ -1,7 +1,11 @@
 /* Lichen Vivarium II — mobile-first pinned canvas, scrollable controls, pull divider */
 :root { --lichen-stage-height: 53dvh; }
 html,body {overscroll-behavior: none;}
-#tabBar { position: sticky; top: 0; z-index: 20; }
+#tabBar { position: sticky; top: 0; z-index: 20;
+  display:flex;overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:none; }
+#tabBar::-webkit-scrollbar {display:none;}
+#tabBar button {flex:1 0 auto;min-width:78px;padding-inline:11px;}
 #tabBar button { white-space:nowrap; }
 #controlsPanel { scrollbar-gutter: stable; }
 #stageDivider {display:none;}
