@@ -297,3 +297,17 @@ test('Rich rhizines obey cap and never rebuild every frame',()=>{
   x.layer.draw(2032,x.bindings);
   assert.equal(x.buffers.length,uploads,'GPU sim changes do not rebuild static root paths');
 });
+
+test('fullscreen macro shader retains its own WebGL2 VAO across mesh passes',()=>{
+  const html=fs.readFileSync(path.resolve(__dirname,'..','index.html'),'utf8');
+  assert.ok(html.includes('const quadVao = gl.createVertexArray()'),
+    'fullscreen shader owns persistent vertex setup');
+  assert.ok(html.includes('gl.bindVertexArray(quadVao);'),
+    'main shader explicitly restores fullscreen quad VAO every frame');
+  assert.ok(html.indexOf('rhizine-network.js') <
+            html.indexOf('geometry-layer.js'),
+    'rhizine geometry is defined before optional mesh initialization');
+  assert.ok(html.includes('rockField, waterField'),
+    'real substrate fields are shared with geometry');
+});
+
