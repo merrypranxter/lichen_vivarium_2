@@ -519,6 +519,38 @@
             <output id="geometryTiltVal" class="mono text-cyan-300">0.65</output></span>
             <input id="geometryTiltSlider" type="range" min="0" max="1.5" step="0.05" value="0.65" class="w-full"/>
           </label>
+          <div class="border-t border-slate-700/70 pt-3 mt-3 space-y-3">
+            <div class="text-xs font-semibold text-lime-300">Fruticose 3D branch skeletons</div>
+            <p class="text-[11px] text-slate-400">
+              Cylindrical or flattened stems grow from a real holdfast, then split at tips
+              or sprout lateral buds. Geometry extends progressively with biomass and age.
+            </p>
+            <label class="block text-xs text-slate-300" for="branchPatternSelect">
+              Branching architecture
+              <select id="branchPatternSelect" class="lichen-select mt-1">
+                <option value="cladonia" selected>Cladonia · dichotomous splitting tips</option>
+                <option value="ramalina">Ramalina · lateral buds & straplike branches</option>
+              </select>
+            </label>
+            <label class="block text-xs text-slate-300" for="branchDensitySlider">
+              <span class="flex items-center justify-between mb-1"><span>Stem density</span>
+                <output id="branchDensityVal" class="mono text-lime-300">1.00x</output>
+              </span>
+              <input id="branchDensitySlider" type="range" min="0.5" max="2" step="0.1"
+                value="1" class="w-full" />
+            </label>
+            <label class="block text-xs text-slate-300" for="branchHeightSlider">
+              <span class="flex items-center justify-between mb-1"><span>Branch height</span>
+                <output id="branchHeightVal" class="mono text-lime-300">1.00x</output>
+              </span>
+              <input id="branchHeightSlider" type="range" min="0.4" max="2.0" step="0.05"
+                value="1" class="w-full" />
+            </label>
+            <p class="text-[10px] text-slate-500">
+              Designed to stay compatible with the living growth and video exporter.
+              Off disables all additional geometry.
+            </p>
+          </div>
           <div id="meshGeometryStatus" role="status" class="text-[11px] text-cyan-200">
             Preparing optional 3D meshes…
           </div>
@@ -757,6 +789,7 @@
 
   <!-- Studio enhancements are optional; original biological engine remains standalone. -->
   <script src="./studio-runtime.js"></script>
+  <script src="./branch-skeletons.js"></script>
   <script src="./geometry-layer.js"></script>
   <!-- APPLICATION SCRIPT: COUPLED PDE BIOLOGICAL ENGINE + WEBGL2 MICROFACET & RAYMARCH SHADER -->
   <script>
@@ -819,6 +852,9 @@
         geometryQuality: 'lite', // true 3D triangle overlay; off keeps the original renderer
         geometryDepth: 1.0,     // raised geometric height
         geometryTilt: 0.65,     // oblique height projection; substrate remains registered
+        branchPattern: 'cladonia', // real 3D dichotomous tips vs lateral-budded Ramalina
+        branchDensity: 1.0,       // procedural stem count (GPU budget capped by quality)
+        branchHeight: 1.0,        // true triangular tube height, independent of underlying growth
         paletteMode: 1,         // 1: UV Biolum, 2: Opaline, 3: Alien Acid, 4: Abyssal, 0: Natural
         hueShift: 0.0,
         psyIntensity: 1.35,
@@ -2616,6 +2652,13 @@
         v => `${v.toFixed(2)}x`);
       bindSlider('geometryTiltSlider', 'geometryTiltVal', 'geometryTilt',
         v => v.toFixed(2));
+      bindSlider('branchDensitySlider', 'branchDensityVal', 'branchDensity',
+        v => `${v.toFixed(2)}x`);
+      bindSlider('branchHeightSlider', 'branchHeightVal', 'branchHeight',
+        v => `${v.toFixed(2)}x`);
+      document.getElementById('branchPatternSelect').addEventListener('change', event => {
+        params.branchPattern = event.target.value === 'ramalina' ? 'ramalina' : 'cladonia';
+      });
       const geometrySelect = document.getElementById('geometryQualitySelect');
       geometrySelect.addEventListener('change', () => {
         params.geometryQuality = geometrySelect.value;
@@ -2880,7 +2923,8 @@
             });
             if (meshStatus && (!exportPass) && nowMs-lastGeometryLabelMs>1500) {
               lastGeometryLabelMs=nowMs;
-              meshStatus.textContent = `3D ${params.geometryQuality} · ${meshStats.cups} cups · ${meshStats.lobes} lifted lobes · ${meshStats.triangles} triangles`;
+              meshStatus.textContent =
+                `3D ${params.geometryQuality} · ${meshStats.cups} cups · ${meshStats.lobes} raised lobes · ${meshStats.branchStems} branching thalli / ${meshStats.branchSegments} stem segments · ${meshStats.triangles} triangles`;
             }
           } catch (geometryDrawError) {
             // Restore the original fullscreen pipeline even if a GPU driver
