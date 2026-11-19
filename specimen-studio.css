@@ -1,0 +1,31 @@
+/* Self-contained material-study controls; usable when the utility CDN is offline. */
+.specimen-studio {padding:16px;margin-bottom:18px;border:1px solid #40564f;border-radius:14px;background:linear-gradient(145deg,#14241f,#13191e);color:#e5eee9;font:12px/1.5 system-ui,sans-serif;}
+.specimen-title-row {display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;justify-content:space-between;}
+.specimen-title-row h2 {margin:0;font-size:16px;letter-spacing:.01em;font-weight:650;color:#f0f5e7;}
+.specimen-title-row span {font-size:10px;color:#9bb8a7;}
+.specimen-copy {margin:7px 0 13px;color:#b8c8c0;}
+.specimen-actions {display:flex;flex-wrap:wrap;gap:7px;margin:11px 0;}
+.specimen-studio button,.specimen-exhibition-return {border:1px solid #486456;border-radius:7px;padding:8px 10px;min-height:36px;background:#203d32;color:#ecf4e9;font:inherit;cursor:pointer;}
+.specimen-studio button:hover,.specimen-exhibition-return:hover {background:#305340;}
+.specimen-studio :is(button,select,input):disabled {opacity:.4;cursor:default;}
+.specimen-studio :is(button,input,select):focus-visible,.specimen-exhibition-return:focus-visible {outline:2px solid #b3db9e;outline-offset:3px;}
+.specimen-check {display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:13px 0;color:#e3ecd9;}
+.specimen-check input {accent-color:#bbdca9;width:16px;height:16px;}
+.specimen-check span {color:#97ac9f;font-size:10px;}
+.specimen-selects {display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.specimen-selects label {display:block;color:#b9c9be;}
+.specimen-studio select {display:block;width:100%;min-height:37px;margin-top:4px;padding:7px;border:1px solid #46584e;border-radius:7px;background:#13221b;color:#e6eedf;font:inherit;}
+.specimen-slider {display:grid;grid-template-columns:1fr auto;gap:4px;margin:13px 0;color:#cbd8cb;}
+.specimen-slider output {font-variant-numeric:tabular-nums;color:#c1d9aa;}
+.specimen-slider input {grid-column:1/-1;width:100%;margin-top:4px;accent-color:#b7d697;}
+.specimen-status {margin:10px 0 0;font-size:11px;color:#99b7a5;}
+.specimen-exhibition-return {position:fixed;right:18px;bottom:18px;z-index:100;font:12px system-ui,sans-serif;box-shadow:0 2px 15px #0008;}
+.specimen-exhibition-return[hidden] {display:none!important;}
+body.exhibition {display:flex!important;min-height:100dvh!important;height:100dvh!important;overflow:hidden!important;}
+body.exhibition #controlsPanel,body.exhibition #viewportHud,body.exhibition #quickTransport,body.exhibition #stageDivider,body.exhibition #viewportWrapper>div {display:none!important;}
+body.exhibition #viewportStage {position:static!important;display:flex!important;flex:1 1 auto!important;height:100dvh!important;max-height:none!important;min-height:0!important;padding:12px!important;justify-content:center!important;align-items:center!important;}
+body.exhibition #viewportWrapper {flex:0 1 auto!important;width:min(94vw,94dvh)!important;height:min(94vw,94dvh)!important;max-width:none!important;max-height:none!important;aspect-ratio:1!important;border:0!important;border-radius:0!important;}
+@media (max-width:380px) {.specimen-selects {grid-template-columns:1fr;}.specimen-studio {padding:12px;}}
+/* The desktop control column scrolls as a whole. Keep its tab strip from
+   shrinking to zero when an anatomy panel is taller than the viewport. */
+#tabBar {flex:0 0 auto;}

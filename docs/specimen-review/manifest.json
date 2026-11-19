@@ -1,0 +1,84 @@
+{
+  "browser": "156.0.8078.79",
+  "resolution": 512,
+  "frames": [
+    {
+      "name": "01-dry-pigment",
+      "sha256": "b3f1990a4321b49c74e9031eadeb24224590d7c86d4bcdca78874b741d2c1cf9",
+      "renderMs": 410,
+      "nonzeroPixels": 262135
+    },
+    {
+      "name": "02-repeat",
+      "sha256": "b3f1990a4321b49c74e9031eadeb24224590d7c86d4bcdca78874b741d2c1cf9",
+      "renderMs": 44,
+      "nonzeroPixels": 262135
+    },
+    {
+      "name": "03-neutral",
+      "sha256": "8bc3f19882a6cbbccd1060dce377887940da6236a7bcb49caf9dc5182af73fb6",
+      "renderMs": 4,
+      "nonzeroPixels": 262135
+    },
+    {
+      "name": "04-raking-light",
+      "sha256": "adae90179589d1b074698b53de1b8ef28ca85b3646d276b71488ee29f1b91204",
+      "renderMs": 41,
+      "nonzeroPixels": 262141
+    },
+    {
+      "name": "05-silhouette",
+      "sha256": "52b67e341367bd18dc483c5bb3212edbe23f7d9735a80558133c1f7439f18667",
+      "renderMs": 54,
+      "nonzeroPixels": 46984
+    },
+    {
+      "name": "06-wet-pigment",
+      "sha256": "9b475a4a65381ca99e52b5af74a8a769d4f9d9be7c1be7eee9f0b401f5d14003",
+      "renderMs": 43,
+      "nonzeroPixels": 262142
+    },
+    {
+      "name": "07-hydration",
+      "sha256": "ed0f1d0cf6546edf35f65686e208f9982b25a2231506e26ff904b2273038981a",
+      "renderMs": 43,
+      "nonzeroPixels": 262144
+    },
+    {
+      "name": "08-legacy-comparison",
+      "sha256": "e98c500fde039009de1668585058b9badb04153cb5911c97fae0988231210daf",
+      "renderMs": 32,
+      "nonzeroPixels": 262144
+    },
+    {
+      "name": "09-albedo",
+      "sha256": "87472cf077c50cddeec714ad7a77cc49d1233a3db327472a6e2d86ce9e83e430",
+      "renderMs": 179,
+      "nonzeroPixels": 262144
+    },
+    {
+      "name": "10-normals",
+      "sha256": "b6b7c4c2e300174a5c48b766029a08d7aaadb6e94353fc2e86f530e9e2bd1855",
+      "renderMs": 3,
+      "nonzeroPixels": 262144
+    },
+    {
+      "name": "11-roughness",
+      "sha256": "53872c0592996638b0bd7505bec56383b55413bed4d3ee3ca2dfc6be824896df",
+      "renderMs": 2,
+      "nonzeroPixels": 262144
+    },
+    {
+      "name": "12-specular",
+      "sha256": "3292efb7339d471de7edcfd4cc7ec6e0ccbb4c8ad4acc404e5e6770723687e33",
+      "renderMs": 7,
+      "nonzeroPixels": 44906
+    },
+    {
+      "name": "13-restored",
+      "sha256": "b3f1990a4321b49c74e9031eadeb24224590d7c86d4bcdca78874b741d2c1cf9",
+      "renderMs": 109,
+      "nonzeroPixels": 262135
+    }
+  ]
+}
