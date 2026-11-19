@@ -2381,6 +2381,12 @@
       gl.linkProgram(program);
       gl.useProgram(program);
 
+      // The fullscreen macro shader MUST own a persistent VAO.
+      // Optional 3D geometry binds a different VAO; without this, the next
+      // preview/export frame loses its quad vertex attribute on WebGL2.
+      const quadVao = gl.createVertexArray();
+      if (!quadVao) throw new Error('Could not create lichen fullscreen VAO');
+      gl.bindVertexArray(quadVao);
       // Fullscreen Quad Geometry
       const quadBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
@@ -3047,6 +3053,10 @@
         }
         updateSmoothRenderTextures(dtMs, exportPass && !advance);
 
+        // Restore the full-screen shader/VAO explicitly after every optional
+        // mesh pass. One animation frame and one export frame use the same path.
+        gl.useProgram(program);
+        gl.bindVertexArray(quadVao);
         // Upload updated biological state textures
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, bioTex);
@@ -3106,7 +3116,7 @@
               + geometryDrawError.message + ' — original artwork preserved.';
             try { geometryLayer.dispose(); } catch(e) {}
             geometryLayer = null;
-            gl.bindVertexArray(null);
+            gl.bindVertexArray(quadVao);
             gl.useProgram(program);
           }
         }
