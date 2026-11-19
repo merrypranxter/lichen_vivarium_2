@@ -190,10 +190,13 @@ void main() {
   vec3 light=normalize(uMeshLight);
   float diffuse=max(0.0,dot(n,light));
   float diffuseBack=max(0.0,dot(n,-light));
-  float seed=fract(vMeshSeed*0.72+vMeshType*0.33);
+  // Root cortex and raised branches share a single living colony palette identity.
+  float paletteAnatomy=min(vMeshType,2.0);
+  float seed=fract(vMeshSeed*0.72+paletteAnatomy*0.33);
   vec3 base;
   if (uMeshPaletteMode == 6) {
-    base=texture(uMeshRamp,vec2(fract(seed+vMeshHeight*1.25),0.5)).rgb;
+    float anatomicalHeight=vMeshType>3.5?0.0:vMeshHeight;
+    base=texture(uMeshRamp,vec2(fract(seed+anatomicalHeight*1.25),0.5)).rgb;
   } else if (uMeshPaletteMode == 0) {
     base=vMeshType<0.5 ? vec3(0.70,0.83,0.47) :
          (vMeshType<1.5 ? vec3(0.48,0.63,0.31) : vec3(0.70,0.76,0.52));
@@ -393,7 +396,8 @@ void main() {
       const steps=[
         [0,0.64], [0.16,0.93], [0.39,0.83],
         [0.67,0.50], [0.88,0.24], [1.0,0.035],
-        [1.015,-0.015], [0.83,-0.08], [0.30,-0.07]
+        [1.015,-0.015], [0.83,-0.08], [0.30,-0.07],
+        [0,-0.05] // return to a tucked-under center, closing the basal shell
       ];
       const radius=0.030;
       const phase=seed*Math.PI*2;
