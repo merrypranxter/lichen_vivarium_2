@@ -9,6 +9,7 @@ on:
       - geometry-layer.js
       - branch-skeletons.js
       - tests/branch-skeletons.test.cjs
+      - tests/geometry-layer.test.cjs
       - studio-layout.css
       - palette-library.js
       - .github/workflows/deploy-pages.yml
@@ -32,8 +33,8 @@ jobs:
     steps:
       - name: Check out the source
         uses: actions/checkout@v4
-      - name: Check deterministic 3D branch skeletons (no dependencies)
-        run: node --test tests/branch-skeletons.test.cjs
+      - name: Check biological 3D geometry and cortical material regression (no dependencies)
+        run: node --test tests/*.test.cjs
       - name: Prepare static site (no npm build or paid host)
         run: |
           mkdir -p _site
