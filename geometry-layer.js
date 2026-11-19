@@ -333,7 +333,7 @@ void main() {
     }
     function scan(nowMs,quality){
       if (quality==='off')return;
-      if (quality===lastQuality && nowMs-lastScanMs<1700)return;
+      if (quality===lastQuality && nowMs>=lastScanMs && nowMs-lastScanMs<1700)return;
       lastScanMs=nowMs;
       const year=getYears();
       if (year<currentYear-0.8) {
@@ -366,11 +366,11 @@ void main() {
         gl.uniform1f(loc.uMeshZoom,params.zoom);
         gl.uniform2f(loc.uMeshPan,params.panX,params.panY);
         gl.uniform1f(loc.uMeshWet,params.effectiveWetness);
-        gl.uniform1f(loc.uMeshDepth,params.geometryDepth||1);
-        gl.uniform1f(loc.uMeshTilt,params.geometryTilt||0.65);
-        gl.uniform1f(loc.uMeshCupRise,params.cupRise||1);
-        gl.uniform1f(loc.uMeshLobeCurl,params.lobeUnfurl||1);
-        gl.uniform1f(loc.uMeshMorph,params.morphogenesis||1);
+        gl.uniform1f(loc.uMeshDepth,params.geometryDepth ?? 1);
+        gl.uniform1f(loc.uMeshTilt,params.geometryTilt ?? 0.65);
+        gl.uniform1f(loc.uMeshCupRise,params.cupRise ?? 1);
+        gl.uniform1f(loc.uMeshLobeCurl,params.lobeUnfurl ?? 1);
+        gl.uniform1f(loc.uMeshMorph,params.morphogenesis ?? 1);
         gl.uniform3f(loc.uMeshLight,bindings.light[0],bindings.light[1],bindings.light[2]);
         gl.uniform1i(loc.uMeshPaletteMode,params.paletteMode);
         gl.enable(gl.BLEND);
