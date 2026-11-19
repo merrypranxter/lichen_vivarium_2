@@ -43,6 +43,39 @@ Controls: **Developmental Unfolding** 0–100% (0 uses original shape staging), 
 
 This is **dynamic heightfield/parallax morphogenesis**, not generated overhanging polygonal meshes. It preserves the renderer's WebGL2/iPhone architecture while improving the physically apparent motion. It intentionally uses simulated tissue age, biomass, fruiting and lagged hydration rather than decorative periodic sine animations, and the exact same shader runs for on-screen preview, GIF and MP4.
 
+## Phase 10: biogenic rock weathering and enduring geological memory
+
+**`rock-weathering.js`** models slow *biologically inspired* mineral erosion and persistent chemical staining on the original 256×256 slate, independent of living biomass. A separate, persistent geological record allows one generation of lichen to change where the next generation can grow.
+
+### A rock that remembers its tenants
+
+- **Biogenic micro-etching:** hydrated, mature tissue gradually deposits an erosion record into a separate heightfield. Acid-inspired interaction intensity depends on growth-form traits, local water content, tissue maturity, surviving biomass, rock type and local biological cracks. Rock is *not* dissolved spontaneously in bare cells.
+- **Mineral-oxide blooms:** slowly accumulated iron/oxide-like stains follow living surface contact and local mineral susceptibility. They fade extremely gradually after the organism dies, unlike permanent etched geometry.
+- **Organic residue:** distinct fungal/photobiont-inspired dark stain deposits follow the living colony, survive colonization changes and only diminish with slow runoff.
+- **Permanent scar memory:** a fourth 8-bit display channel stores a historical record of previous lichen occupation; old erosion and historical marks survive both `clearAllLichens()` and regular ecosystem reseeding. The only destructive operation is the explicit, confirmation-protected **Reset Geological Scars** button.
+- **Feedback:** surviving shallow pits slightly increase local moisture retention; newly colonizing thalli see modified habitat suitability and mineral replenishment through `substrateEcology.attachWeathering(...)`. Terrain Influence at 0 restores the legacy biological growth multipliers even when historical scars exist.
+- **Time scale:** rock changes are calculated every *fourth biological tick*, not per animation frame. The weathering record is deterministic and follows fixed biological time in preview, chronology jumps, and PNG/GIF/MP4 export.
+- **Performance:** one 256² RGBA8 texture on GL unit 4 stores R=etched relief, G=oxide stain, B=organic stain, A=historical memory; it is uploaded only when the geological fields actually change. Existing palette ramp (unit 2) and environmental diagnostics (unit 3) are unchanged. Shader heightfield relief fetches are conditional, so a Before view or relief slider at zero does not pay the extra rock-height lookup cost.
+
+### Physical-looking scar rendering
+
+The existing macro-photographic shader now subtracts gradual etched depth from the **rock heightfield** itself, affecting parallax, multi-scale surface normals, light and shadows. The rock albedo receives mineral and organic stains only where those historical records exist. In **Natural** color mode, deposits resemble ochre oxides and desaturated organic films; psychedelic modes introduce impossible mineral bloom pigments; the **Color Vault** mode samples colors directly from the active palette ramp, so the geological stains remain coordinated with the artwork.
+
+### Substrate Lab controls
+
+- **Chemical weathering speed:** 0–2×. Zero freezes new erosion and stains, but never erases existing history.
+- **Micro-etching**, **Oxide bloom** and **Organic staining:** independently adjustable 0–2× pathways.
+- **Visible etched depth** and **Stain saturation:** independently control visual strength without rewriting the biological record.
+- **Ancient Patina** and **Acid Mineral Bloom** presets.
+- **Before/After · Original rock** toggles the *visual* history only; geological processes keep running underneath. **Reset Geological Scars** asks before erasing the cumulative rock record, while leaving living colonies intact.
+- **Inspect Living Terrain:** existing environmental maps (water, mineral seam, cleavage, exposure) now include historical overlays: etched depth (lavender), oxide bloom (copper), organic stains (teal), and scar memory (magenta). All work in the same fixed canvas and export route.
+
+### Safety and limits
+
+`node --test tests/*.test.cjs` now contains **34 regression checks** across existing 3D anatomy, living substrate ecology, and chemical weathering. New tests cover distinct chemical pathways, disappearance versus persistence across colony death, history reset, optional freezing, color-data packing, deterministic progression, and habitat feedback. The workflow runs all tests before deploying all static files to **free GitHub Pages**.
+
+**Scientific honesty:** these are *stylized artistic representations* of lichen-driven mineral dissolution, pigmentation, and succession, not empirical predictions of dissolution rates or a physically calibrated geochemical simulation. The underlying granite/slate photoreal shader and actual biology-grid rock field are related but not mathematically identical. This is a mutable 2.5D rock heightfield beneath optional real 3D lichen meshes, not a full mesh erosion / fluid-rock chemistry simulation. iPhone Safari shader performance and real MP4/GIF encoding still need physical device testing.
+
 ## Phase 9: the substrate as an ecological actor
 
 **`substrate-ecology.js`** activates a lightweight, coupled microclimate layer over the EXISTING 256×256 slate, water and biological fields. It uses the same `rockField` and `waterField` already consumed by 3D rhizines, and does not create unrelated fake rock geometry.
