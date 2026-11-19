@@ -36,10 +36,18 @@
         const height=clamp(rockField[i]);
         const valley=clamp((.53-height)*1.75);
         const slope=clamp((Math.abs(right-left)+Math.abs(up-down))*3.5);
+        // Match the visible shader's quartz-vein trajectory approximately:
+        // y = .68 + .52*(x-.35) - .05*fbm(x,y).
+        // CPU/GPU fBm implementations differ, so this is a coherent
+        // spatial approximation, not numerical identity.
+        const u=x/N,v=y/N;
+        const quartzDistance=Math.abs((v-.68)-.52*(u-.35)+
+                                     .025+.009*(height-.5));
+        const quartz=Math.exp(-quartzDistance*55.0);
         // Geological cleavage creates veins at height discontinuities,
         // rather than a new unrelated random mineral noise field.
         crevice[i]=clamp(valley*.86+slope*.22);
-        mineral[i]=clamp(.14+height*.46+slope*.54);
+        mineral[i]=clamp(.14+height*.46+slope*.54+quartz*.40);
         exposure[i]=clamp(.18+height*.69-valley*.19);
         waterField[i]=clamp(waterField[i]);
       }
