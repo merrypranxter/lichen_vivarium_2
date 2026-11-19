@@ -2606,6 +2606,9 @@
       const auxTex = createFieldTexture(1);
       const substrateTex = createFieldTexture(3);
       const substrateTexData = new Uint8Array(NUM_CELLS * 4);
+      const weatheringTex = createFieldTexture(4);
+      const weatheringTexData = new Uint8Array(NUM_CELLS * 4);
+      let lastWeatheringRevision=-1;
 
       // Uniform Locations
       const uniforms = {
@@ -2614,6 +2617,9 @@
         uColorRamp: gl.getUniformLocation(program, 'uColorRamp'),
         uSubstrateMap: gl.getUniformLocation(program, 'uSubstrateMap'),
         uSubstrateView: gl.getUniformLocation(program, 'uSubstrateView'),
+        uWeatheringMap: gl.getUniformLocation(program, 'uWeatheringMap'),
+        uWeatheringRelief: gl.getUniformLocation(program, 'uWeatheringRelief'),
+        uWeatheringPigment: gl.getUniformLocation(program, 'uWeatheringPigment'),
         uTime: gl.getUniformLocation(program, 'uTime'),
         uWetness: gl.getUniformLocation(program, 'uWetness'),
         uPaletteMode: gl.getUniformLocation(program, 'uPaletteMode'),
@@ -2641,6 +2647,7 @@
       gl.uniform1i(uniforms.uAuxTex, 1);
       if (uniforms.uColorRamp !== null) gl.uniform1i(uniforms.uColorRamp, 2);
       if (uniforms.uSubstrateMap !== null) gl.uniform1i(uniforms.uSubstrateMap, 3);
+      if (uniforms.uWeatheringMap !== null) gl.uniform1i(uniforms.uWeatheringMap, 4);
 
       // Resize Canvas to match DPI
       function resizeCanvas() {
@@ -3372,6 +3379,17 @@
           gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,GRID_SIZE,GRID_SIZE,0,
                         gl.RGBA,gl.UNSIGNED_BYTE,substrateTexData);
         }
+        // Upload the four persistent rock records only when changed, keeping
+        // the palette (unit 2) and prior terrain maps (unit 3) untouched.
+        if (rockWeathering &&
+           rockWeathering.getRevision()!==lastWeatheringRevision) {
+          rockWeathering.encodeRGBA(weatheringTexData);
+          gl.activeTexture(gl.TEXTURE4);
+          gl.bindTexture(gl.TEXTURE_2D,weatheringTex);
+          gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,GRID_SIZE,GRID_SIZE,0,
+                        gl.RGBA,gl.UNSIGNED_BYTE,weatheringTexData);
+          lastWeatheringRevision=rockWeathering.getRevision();
+        }
         // Compute 3D directional light vector from Azimuth & Elevation
         const cosEl = Math.cos(params.lightElevation);
         const lx = Math.cos(params.lightAzimuth) * cosEl;
@@ -3380,7 +3398,13 @@
 
         gl.uniform1f(uniforms.uTime, nowMs * 0.001);
         gl.uniform1f(uniforms.uWetness, params.effectiveWetness);
-        gl.uniform1i(uniforms.uSubstrateView,substrateEcology ? params.substrateView : 0);
+        gl.uniform1i(uniforms.uSubstrateView,
+          params.substrateView>4 ? (rockWeathering ? params.substrateView : 0)
+          : (substrateEcology ? params.substrateView : 0));
+        gl.uniform1f(uniforms.uWeatheringRelief,
+          rockWeathering&&!params.weatheringBefore ? params.weatheringRelief : 0);
+        gl.uniform1f(uniforms.uWeatheringPigment,
+          rockWeathering&&!params.weatheringBefore ? params.weatheringPigment : 0);
         gl.uniform1i(uniforms.uPaletteMode, params.paletteMode);
         gl.uniform1f(uniforms.uHueShift, params.hueShift);
         gl.uniform1f(uniforms.uPsyIntensity, params.psyIntensity);
@@ -3411,6 +3435,14 @@
               const m=substrateEcology.statistics();
               status.textContent=`Mean water ${Math.round(m.meanWater*100)}% · crevice ${Math.round(m.meanCrevice*100)}% · mineral ${Math.round(m.meanMineral*100)}% · exposure ${Math.round(m.meanExposure*100)}%`;
             } else status.textContent='Original rock model in use — substrate enhancement unavailable.';
+          }
+          const geologicalStatus=document.getElementById('weatheringStats');
+          if (geologicalStatus && rockWeathering){
+            const w=rockWeathering.statistics();
+            geologicalStatus.textContent=
+              `Erosion ${(w.meanEtch*100).toFixed(1)}% avg / ${(w.maxEtch*100).toFixed(0)}% max · oxides ${(w.meanOxide*100).toFixed(1)}% · old scars ${(w.scarCoverage*100).toFixed(1)}% of rock`;
+          } else if(geologicalStatus){
+            geologicalStatus.textContent='Optional geological memory unavailable.';
           }
         }
 
