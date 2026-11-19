@@ -2,6 +2,12 @@
 
 A **separate** lichen art application built from the original *The Photorealistic Lichen Engine — Morphogenesis & Senescence* HTML. The source of the live application is **[index.html](index.html)**. The first Lichen Vivarium is a different project and is not affected.
 
+## Material realism study
+
+The new **Optics/3D → Material study** builds a substantial fictional foliose specimen with opaque finite-thickness lobes, differentiated undersides, local hydration, shared terrain/depth, and one linear-light display pipeline. The existing saturated palettes remain available. Load the study, compare dry/misted tissue or neutral lighting, then return to your previous artwork. A legacy-render comparison and interface-free exhibition view are included.
+
+See [implementation, review captures, tests and remaining work](docs/material-realism.md). This is the first rendering/anatomy slice of the supplied realism guides; persistent tip development, full shadow maps and project-file saves remain future work.
+
 ## Biological morphogenesis
 
 The five morphology engines in the supplied prototype are:

@@ -1,0 +1,134 @@
+[
+  {
+    "label": "desktop",
+    "loaded": {
+      "running": false,
+      "quality": "rich",
+      "zoom": "3.4",
+      "label": "Grow"
+    },
+    "exhibition": {
+      "body": true,
+      "panel": "none",
+      "return": "block",
+      "button": {
+        "x": 968.578125,
+        "y": 696,
+        "width": 113.421875,
+        "height": 36,
+        "top": 696,
+        "right": 1082,
+        "bottom": 732,
+        "left": 968.578125
+      },
+      "view": {
+        "x": 197.5,
+        "y": 22.5,
+        "width": 705,
+        "height": 705,
+        "top": 22.5,
+        "right": 902.5,
+        "bottom": 727.5,
+        "left": 197.5
+      }
+    },
+    "layout": {
+      "tailwind": true,
+      "viewport": {
+        "w": 1100,
+        "h": 750
+      },
+      "bodyScroll": 1100,
+      "tab": "none",
+      "optics": "block",
+      "panel": {
+        "x": 660,
+        "y": 0,
+        "width": 440,
+        "height": 750,
+        "top": 0,
+        "right": 1100,
+        "bottom": 750,
+        "left": 660
+      },
+      "study": {
+        "x": 677,
+        "y": 155,
+        "width": 401,
+        "height": 554.5,
+        "top": 155,
+        "right": 1078,
+        "bottom": 709.5,
+        "left": 677
+      }
+    },
+    "errors": [],
+    "network": []
+  },
+  {
+    "label": "phone",
+    "loaded": {
+      "running": false,
+      "quality": "rich",
+      "zoom": "3.4",
+      "label": "Grow"
+    },
+    "exhibition": {
+      "body": true,
+      "panel": "none",
+      "return": "block",
+      "button": {
+        "x": 258.578125,
+        "y": 790,
+        "width": 113.421875,
+        "height": 36,
+        "top": 790,
+        "right": 372,
+        "bottom": 826,
+        "left": 258.578125
+      },
+      "view": {
+        "x": 12,
+        "y": 238.703125,
+        "width": 366.59375,
+        "height": 366.59375,
+        "top": 238.703125,
+        "right": 378.59375,
+        "bottom": 605.296875,
+        "left": 12
+      }
+    },
+    "layout": {
+      "tailwind": true,
+      "viewport": {
+        "w": 390,
+        "h": 844
+      },
+      "bodyScroll": 390,
+      "tab": "none",
+      "optics": "block",
+      "panel": {
+        "x": 0,
+        "y": 461.3125,
+        "width": 390,
+        "height": 382.6875,
+        "top": 461.3125,
+        "right": 390,
+        "bottom": 844,
+        "left": 0
+      },
+      "study": {
+        "x": 12,
+        "y": 538.3125,
+        "width": 360,
+        "height": 554.5,
+        "top": 538.3125,
+        "right": 372,
+        "bottom": 1092.8125,
+        "left": 12
+      }
+    },
+    "errors": [],
+    "network": []
+  }
+]

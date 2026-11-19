@@ -8,7 +8,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 
-const sources = ['branch-skeletons.js','rhizine-network.js','geometry-layer.js']
+const sources = ['foliose-anatomy.js','branch-skeletons.js','rhizine-network.js','geometry-layer.js']
   .map(f=>fs.readFileSync(path.resolve(__dirname,'..',f),'utf8'));
 const sandbox={window:{}};
 for(const source of sources)vm.runInNewContext(source,sandbox,{timeout:3000});
@@ -82,12 +82,13 @@ function makeScene(){
     rhizineDensity:1,rhizineGrip:1.3,rhizineLength:1,cupRise:1.25,
     lobeUnfurl:1.15,morphogenesis:1,effectiveWetness:.75,
     zoom:1,panX:0,panY:0,paletteMode:1};
+  const fields=makeFields();
   const layer=sandbox.window.createLichenGeometryLayer({
-    gl:gpu.gl,fields:makeFields(),params,getYears:()=>22
+    gl:gpu.gl,fields,params,getYears:()=>22
   });
   const bindings={mainProgram:{},bioTex:{},auxTex:{},
     light:[.6,.45,.65]};
-  return {...gpu,layer,params,bindings};
+  return {...gpu,layer,params,bindings,fields};
 }
 
 test('three lichen forms create live meshes and bounded 3D fibrils',()=>{
@@ -97,7 +98,7 @@ test('three lichen forms create live meshes and bounded 3D fibrils',()=>{
   assert.ok(stats.branchStems>0,'fruticose axes present');
   assert.ok(stats.branchSegments>0,'branch segments present');
   assert.ok(stats.fibrils>0 && stats.fibrils<=20,'mobile fibril cap');
-  assert.ok(stats.triangles<5000,'Lite triangle budget');
+  assert.ok(stats.triangles<7500,'Lite budget includes finite upper/lower skins and closed rims');
   assert.equal(x.draws.length,2,'shadow and physical mesh passes');
   assert.equal(x.buffers.at(-1).length,stats.triangles*3*19);
   assert.ok(x.buffers.at(-1).every(Number.isFinite));
@@ -311,3 +312,37 @@ test('fullscreen macro shader retains its own WebGL2 VAO across mesh passes',()=
     'real substrate fields are shared with geometry');
 });
 
+
+
+test('mesh ownership follows only the first three foliose colonies actually built',()=>{
+  const scene=makeScene();
+  const {fields,layer,params}=scene;
+  fields.biomass.fill(0);fields.colonyIdField.fill(0);fields.speciesField.fill(0);
+  function plant(id,x){
+    const i=40*256+x;
+    fields.biomass[i]=.8;fields.ageField[i]=16;
+    fields.speciesField[i]=1;fields.colonyIdField[i]=id;
+    fields.colonyOriginX[id]=x;fields.colonyOriginY[id]=40;
+  }
+  for(let id=1;id<=4;id++)plant(id,id*40);
+  assert.deepEqual(Array.from(layer.prepare(0)),[1,2,3]);
+  const uploads=scene.buffers.length;
+  assert.deepEqual(Array.from(layer.prepare(16)),[1,2,3]);
+  assert.equal(scene.buffers.length,uploads,'preparing each frame preserves existing topology');
+  params.geometryQuality='off';
+  assert.deepEqual(Array.from(layer.prepare(32)),[],'off keeps all colonies in base rendering');
+  params.geometryQuality='lite';params.realismEnabled=false;
+  assert.deepEqual(Array.from(layer.prepare(48)),[],'legacy keeps all colonies in base rendering');
+  params.realismEnabled=true;
+  fields.biomass[40*256+40]=0;
+  assert.deepEqual(Array.from(layer.prepare(2000)),[2,3,4],
+    'removing a colony frees its slot without clearing the ecosystem');
+  // Replace one colony with another while keeping the map size unchanged.
+  fields.biomass[40*256+80]=0;plant(5,200);
+  assert.deepEqual(Array.from(layer.prepare(4000)),[3,4,5],
+    'identity changes trigger rebuild even when the anchor count is unchanged');
+  fields.biomass.fill(0);fields.colonyIdField.fill(0);plant(9,80);
+  layer.invalidate();
+  assert.deepEqual(Array.from(layer.prepare(4016)),[9],
+    'same-year fixture invalidation forgets all previous ownership');
+});

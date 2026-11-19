@@ -86,7 +86,7 @@
     <div id="viewportHud" class="w-full max-w-[920px] flex flex-wrap items-center justify-between gap-2 mb-2 px-2 py-1.5 rounded-xl bg-slate-900/80 backdrop-blur-md border border-slate-800/80 text-xs">
       <div class="flex items-center gap-2.5">
         <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" id="statusDot"></span>
-        <span class="font-semibold tracking-wide text-slate-100 uppercase">Lichen Morphogenesis Engine</span>
+        <span class="font-semibold tracking-wide text-slate-100 uppercase">Lichen Vivarium II</span>
         <span class="px-2 py-0.5 rounded bg-slate-800 text-sky-400 mono text-[11px]" id="yearReadout">Year 0.0</span>
         <span class="hidden sm:inline-block px-2 py-0.5 rounded bg-slate-800/90 text-fuchsia-300 mono text-[11px]" id="phaseReadout">Phase: Colonization</span>
       </div>
@@ -104,7 +104,7 @@
       <!-- Raking Light & Scale Bar Overlay -->
       <div class="pointer-events-none absolute bottom-3 left-3 flex items-center gap-3 bg-black/65 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-[11px] mono text-slate-300">
         <div class="flex flex-col">
-          <div class="w-12 h-1 border-b-2 border-l-2 border-r-2 border-slate-300 mb-0.5"></div>
+          <div id="scaleBarRule" style="width:48px" class="h-1 border-b-2 border-l-2 border-r-2 border-slate-300 mb-0.5"></div>
           <span class="text-[9px] text-slate-400 text-center" id="scaleBarLabel">5.0 mm</span>
         </div>
         <div class="h-5 w-px bg-slate-700"></div>
@@ -157,12 +157,12 @@
     <div id="controlsHeader" class="p-4 border-b border-slate-800/80 bg-[#0a0c10]">
       <div class="flex items-center justify-between">
         <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
-          <span class="text-fuchsia-400">●</span> Photorealistic Lichen Lab
+          <span class="text-fuchsia-400">●</span> Lichen Vivarium II
         </h1>
         <span class="text-[11px] mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">256² Coupled PDE + WebGL2</span>
       </div>
       <p class="text-xs text-slate-400 mt-1 leading-relaxed">
-        True-to-paper tissue morphogenesis: hypothallus rim, CO₂ diffusion saturation, polygonal areole fracture, Lobaria reticulate ridges, apothecial cups, senescence necrosis, and central flake-off.
+        Impossible pigments, living surfaces. Grow a colony, shape its light, and let local water transform the tissue. Biology is artistically inspired.
       </p>
     </div>
 
@@ -996,6 +996,12 @@
   <script src="./rhizine-network.js"></script>
   <script src="./substrate-ecology.js"></script>
   <script src="./rock-weathering.js"></script>
+  <script src="./shared-material.js"></script>
+  <script src="./tissue-hydration.js"></script>
+  <script src="./foliose-anatomy.js"></script>
+  <script src="./specimen-state.js"></script>
+  <script src="./specimen-studio.js"></script>
+  <link rel="stylesheet" href="./specimen-studio.css">
   <script src="./geometry-layer.js"></script>
   <!-- APPLICATION SCRIPT: COUPLED PDE BIOLOGICAL ENGINE + WEBGL2 MICROFACET & RAYMARCH SHADER -->
   <script>
@@ -1042,7 +1048,21 @@
       let activeTool = 'seed';
       let nextColonyCounter = 1;
 
+      let randomState = 0x17c4a29b;
+      let simulationTick = 0;
+      function biologyRandom() {
+        randomState ^= randomState << 13;
+        randomState ^= randomState >>> 17;
+        randomState ^= randomState << 5;
+        return (randomState >>> 0) / 4294967296;
+      }
       const params = {
+        realismEnabled: true,
+        materialDebug: 0,
+        renderLayer: 'composite',
+        tissueCharacter: 0.65,
+        marginEnergy: 0.5,
+        exposure: 1.0,
         simSpeed: 3,
         ambientHydration: 0.72,
         effectiveWetness: 0.72, // lagged hydration for viscoelastic swelling
@@ -1286,6 +1306,7 @@
       // 2. COUPLED BIOLOGICAL PDE STEP (GROWTH -> MATURATION -> SENESCENCE -> DEATH)
       // ============================================================================
       function stepBiologicalSimulation() {
+        simulationTick++;
         // Hydration behaves like a viscoelastic living material, not an on/off switch.
         // Wet lichen becomes turgid gradually; drying/contracting takes longer.
         // These factors are applied per fixed biological tick, keeping response
@@ -1507,17 +1528,17 @@
         nutrientField.set(nextNutrient);
 
         // 6. Spontaneous Windborne Spore Dispersal from Mature Apothecia onto Bare Rock
-        if (params.sporeRate > 0.01 && Math.random() < params.sporeRate * 0.08 * hydrationActivity) {
-          const rx = 8 + Math.floor(Math.random() * (GRID_SIZE - 16));
-          const ry = 8 + Math.floor(Math.random() * (GRID_SIZE - 16));
+        if (params.sporeRate > 0.01 && biologyRandom() < params.sporeRate * 0.08 * hydrationActivity) {
+          const rx = 8 + Math.floor(biologyRandom() * (GRID_SIZE - 16));
+          const ry = 8 + Math.floor(biologyRandom() * (GRID_SIZE - 16));
           const rIdx = ry * GRID_SIZE + rx;
           if (biomass[rIdx] < 0.02 && necrosisField[rIdx] < 0.15 && nutrientField[rIdx] > 0.65) {
-            const randomSpecies = Math.random() < 0.6 ? activeSpecies : Math.floor(Math.random() * 5);
+            const randomSpecies = biologyRandom() < 0.6 ? activeSpecies : Math.floor(biologyRandom() * 5);
             // Poorly matched exposure/mineral conditions suppress settlement.
             // With Terrain Influence 0, the original seeding chance is unchanged.
             const establishment = substrateEcology
               ? Math.min(1,substrateEcology.growthFactor(rIdx,randomSpecies)) : 1;
-            if (Math.random() < establishment)
+            if (biologyRandom() < establishment)
               inoculateColony(rx / GRID_SIZE, ry / GRID_SIZE, randomSpecies, 2.5, true);
           }
         }
@@ -1562,7 +1583,7 @@
         // Update HUD telemetry
         const covPct = ((activeCount / NUM_CELLS) * 100).toFixed(1);
         const necPct = activeCount > 0 ? ((necroticCount / activeCount) * 100).toFixed(1) : '0.0';
-        document.getElementById('yearReadout').textContent = `Year ${simYears.toFixed(1)}`;
+        document.getElementById('yearReadout').textContent = `Growth ${simYears.toFixed(1)}`;
         document.getElementById('biomassReadout').textContent = `${covPct}%`;
         document.getElementById('necrosisReadout').textContent = `${necPct}%`;
         document.getElementById('hydrationHud').textContent = `${Math.round(params.effectiveWetness * 100)}%`;
@@ -1613,6 +1634,15 @@
         uniform float uWeatheringRelief;
         uniform float uWeatheringPigment;
 
+        uniform bool uRealism;
+        uniform int uMaterialDebug;
+        uniform float uTissueCharacter;
+        uniform float uSceneTilt;
+        uniform bool uMeshOwnsFoliose;
+        uniform vec3 uMeshColonyIds;
+        uniform sampler2D uHydration;
+        uniform sampler2D uTerrain;
+        ${window.LichenMaterial.glsl}
         uniform float uTime;
         uniform float uWetness;
         uniform int uPaletteMode;
@@ -1764,6 +1794,10 @@
         // Weathered Slate Rock Substrate Height & Mineral Micro-Crystals
         // ------------------------------------------------------------------------
         float getRockHeight(vec2 uv) {
+          if (uRealism) {
+            vec2 ground = texture(uTerrain,clamp(uv,0.002,0.998)).rg;
+            return ground.r*.35-.08-ground.g*.042*uWeatheringRelief;
+          }
           float n1 = fbm(uv * 6.0);
           float n2 = ridgedFbm(uv * 19.0 + 3.7);
           float n3 = noise(uv * 110.0);
@@ -1818,7 +1852,10 @@
           vec2 bioGrad;
           vec4 bio = sampleSmoothBio(uv, bioGrad);
           // Snap species/colony lookup to nearest texel to avoid blending integer species IDs across boundaries
-          vec4 auxNearest = texture(uAuxTex, uv);
+          ivec2 cell=clamp(ivec2(uv*256.0),ivec2(0),ivec2(255));
+          vec4 auxNearest = texelFetch(uAuxTex,cell,0);
+          bool meshOwned=uMeshOwnsFoliose && min(abs(auxNearest.a-uMeshColonyIds.x),
+            min(abs(auxNearest.a-uMeshColonyIds.y),abs(auxNearest.a-uMeshColonyIds.z)))<.001;
 
           ts.biomass    = bio.r;
           ts.age        = bio.g;
@@ -1839,7 +1876,9 @@
           ts.isidiaTips      = 0.0;
           ts.dewDrop         = 0.0;
 
-          if (ts.biomass < 0.012) {
+          if (ts.biomass < 0.012 || (uRealism && meshOwned && ts.species > .5 && ts.species < 1.5)) {
+            // Real foliose sheets own their coverage. No second painted rosette beneath them.
+            if (uRealism && meshOwned && ts.species > .5 && ts.species < 1.5) ts.biomass=0.0;
             ts.thallusHeight = 0.0;
             ts.totalHeight = ts.rockHeight;
             return ts;
@@ -2206,6 +2245,7 @@
         // ------------------------------------------------------------------------
         void main() {
           // Base camera coordinates
+          gl_FragDepth=.99;
           vec2 baseUv = (vUv - 0.5) / uZoom + 0.5 + uPan;
 
           if (baseUv.x < 0.0 || baseUv.x > 1.0 || baseUv.y < 0.0 || baseUv.y > 1.0) {
@@ -2214,7 +2254,8 @@
           }
 
           // 1. Iterative Steep Relief Parallax Mapping (creates genuine 3D overhang & cup depth)
-          vec2 viewOffset = (vUv - 0.5) * 0.011 * uParallaxStrength * uReliefHeight;
+          vec2 viewOffset = uRealism ? vec2(-.18,.55)*.12*uSceneTilt
+            : (vUv - 0.5) * 0.011 * uParallaxStrength * uReliefHeight;
           vec2 uv = baseUv;
           float hEst = sampleTotalHeight(uv);
           for (int p = 0; p < 4; p++) {
@@ -2224,6 +2265,9 @@
           uv = clamp(uv, 0.002, 0.998);
 
           TissueSample ts = evaluateTissue(uv);
+          gl_FragDepth = uRealism ? clamp(.5-ts.totalHeight*.12*.5,0.0,1.0) : .5;
+          vec3 localWater=texture(uHydration,uv).rgb;
+          float tissueWet=uRealism?localWater.r:uWetness;
 
           // 2. Multi-Scale Finite-Difference Surface Normals (Macro Form + Micro Cortical Relief)
           float epsMacro = 1.0 / 384.0;
@@ -2241,9 +2285,12 @@
 
           vec2 gradMacro = vec2(hL - hR, hD - hU) * 15.0;
           vec2 gradMicro = vec2(mL - mR, mD - mU) * 28.0 * uMicroDetail;
-          vec3 normal = normalize(vec3(gradMacro + gradMicro, 1.0));
+          vec3 normal = uRealism
+            ? normalize(vec3(vec2(hL-hR,hD-hU)*(.12/(2.0*epsMacro)),1.0))
+            : normalize(vec3(gradMacro + gradMicro, 1.0));
 
-          vec3 viewDir = normalize(vec3((0.5 - vUv) * 0.35, 1.0));
+          vec3 viewDir = uRealism ? normalize(vec3(.18*uSceneTilt,-.55*uSceneTilt,1.0))
+            : normalize(vec3((0.5 - vUv) * 0.35, 1.0));
           vec3 lightDir = normalize(uLightDir);
 
           // 3. 16-Step Soft-Penumbra Ray-Marched Self-Shadowing
@@ -2336,13 +2383,13 @@
               sorediaCol   = vec3(0.84, 0.90, 0.38);
             } else if (ts.species < 1.5) {
               marginCol    = vec3(0.98, 0.72, 0.12);
-              cortexCol    = mix(vec3(0.88, 0.52, 0.10), vec3(0.32, 0.58, 0.16), uWetness * 0.68);
+              cortexCol    = mix(vec3(0.88, 0.52, 0.10), vec3(0.32, 0.58, 0.16), tissueWet * 0.68);
               matureCol    = vec3(0.62, 0.36, 0.08);
               apotheciaCol = vec3(0.85, 0.22, 0.04);
               sorediaCol   = vec3(0.94, 0.84, 0.54);
             } else if (ts.species < 2.5) {
               marginCol    = vec3(0.82, 0.92, 0.86);
-              cortexCol    = mix(vec3(0.65, 0.76, 0.68), vec3(0.30, 0.60, 0.40), uWetness * 0.65);
+              cortexCol    = mix(vec3(0.65, 0.76, 0.68), vec3(0.30, 0.60, 0.40), tissueWet * 0.65);
               matureCol    = vec3(0.42, 0.52, 0.45);
               apotheciaCol = vec3(0.35, 0.18, 0.12);
               sorediaCol   = vec3(0.92, 0.96, 0.88);
@@ -2354,7 +2401,7 @@
               sorediaCol   = vec3(0.75, 0.88, 0.62);
             } else {
               marginCol    = vec3(0.40, 0.45, 0.34);
-              cortexCol    = mix(vec3(0.32, 0.28, 0.26), vec3(0.12, 0.32, 0.20), uWetness);
+              cortexCol    = mix(vec3(0.32, 0.28, 0.26), vec3(0.12, 0.32, 0.20), tissueWet);
               matureCol    = vec3(0.20, 0.18, 0.17);
               apotheciaCol = vec3(0.08, 0.07, 0.07);
               sorediaCol   = vec3(0.50, 0.58, 0.45);
@@ -2468,8 +2515,12 @@
             tissueAlbedo = mix(vec3(luma), tissueAlbedo, uPsyIntensity * 1.25);
           }
 
+          if (uRealism) {
+            tissueAlbedo=lichenSRGBToLinear(clamp(tissueAlbedo,0.0,1.0));
+            rockAlbedo=lichenSRGBToLinear(clamp(rockAlbedo,0.0,1.0));
+          }
           // Wetness cortical transparency shift
-          tissueAlbedo *= mix(1.08, 0.68, uWetness * (1.0 - ts.necrosis * 0.7));
+          tissueAlbedo *= mix(1.08, 0.68, tissueWet * (1.0 - ts.necrosis * 0.7));
 
           // ----------------------------------------------------------------------
           // 7. MICROFACET LIGHTING, VELVET FUZZ, BEER-LAMBERT SSS & THIN-FILM
@@ -2480,8 +2531,8 @@
           float NdotV = max(0.001, dot(normal, viewDir));
 
           // Tissue-dependent roughness: apothecial discs, dewdrops & wet jelly are glossy; soredia & dry cortex are matte
-          float baseRoughness = mix(0.80, 0.22, uWetness * (1.0 - ts.necrosis * 0.8));
-          baseRoughness = mix(baseRoughness, 0.14, ts.apotheciaCup * uWetness);
+          float baseRoughness = mix(0.80, 0.22, tissueWet * (1.0 - ts.necrosis * 0.8));
+          baseRoughness = mix(baseRoughness, 0.14, ts.apotheciaCup * tissueWet);
           baseRoughness = mix(baseRoughness, 0.04, ts.dewDrop);
           baseRoughness = mix(baseRoughness, 0.95, max(ts.sorediaGranule, ts.medullaExposure));
 
@@ -2491,16 +2542,16 @@
           float dewGlint = ts.dewDrop > 0.1 ? pow(NdotH, 240.0) * 1.35 * shadow : 0.0;
 
           // Farinose / pruinose fungal rim backscatter (Oren-Nayar / velvet sheen on dry cortical hairs & soredia)
-          float rimVelvet = pow(1.0 - NdotV, 2.2) * (1.0 - uWetness * 0.65) * (0.4 + 0.6 * ts.sorediaGranule) * NdotL;
+          float rimVelvet = pow(1.0 - NdotV, 2.2) * (1.0 - tissueWet * 0.65) * (0.4 + 0.6 * ts.sorediaGranule) * NdotL;
 
           // Crystalline calcium oxalate pruina micro-glints on dry lobe tips & areoles
-          float pruinaSparkle = step(0.984, hash21(floor(uv * 460.0))) * (1.0 - uWetness * 0.75) * NdotL * shadow;
+          float pruinaSparkle = step(0.984, hash21(floor(uv * 460.0))) * (1.0 - tissueWet * 0.75) * NdotL * shadow;
 
           // Beer-Lambert Subsurface Scattering / Wrapped Translucency on raised lobes, cups & wet jelly
           float wrapDiff = max(0.0, (dot(normal, lightDir) + 0.55) / 1.55);
           float translucentZones = smoothstep(0.05, 0.65, ts.thallusHeight) * (1.0 - ts.hypothallus);
-          float sssFactor = (0.32 + 0.68 * uWetness) * translucentZones * uSssStrength * (1.0 - ts.necrosis);
-          vec3 sssLight = tissueAlbedo * mix(marginCol, photobiontCol, uWetness * 0.4) * wrapDiff * sssFactor * 0.98;
+          float sssFactor = (0.32 + 0.68 * tissueWet) * translucentZones * uSssStrength * (1.0 - ts.necrosis);
+          vec3 sssLight = tissueAlbedo * mix(marginCol, photobiontCol, tissueWet * 0.4) * wrapDiff * sssFactor * 0.98;
 
           // Grazing-Angle Structural Iridescence (Layer IV)
           float fresnel = pow(1.0 - NdotV, 2.6);
@@ -2526,17 +2577,30 @@
           // Sharp, organic fimbriate transition at the outer hypothallus boundary
           float edgeDetail = (fbm(uv * 180.0) - 0.5) * 0.025;
           float thallusAlpha = smoothstep(0.015, 0.075, ts.biomass + edgeDetail);
+          if (uRealism) {
+            float rough=lichenTissueRoughness(tissueWet,localWater.g,ts.sorediaGranule);
+            if (uMaterialDebug==1) tissueAlbedo=lichenSRGBToLinear(vec3(.51,.49,.43));
+            lichenLit=lichenGGX(normal,viewDir,lightDir,tissueAlbedo,rough,cavityAO)*shadow;
+            rockLit=lichenGGX(normal,viewDir,lightDir,rockAlbedo,mix(.9,.48,tissueWet),cavityAO)*shadow;
+            if (uMaterialDebug==2) { lichenLit=lichenLinearToSRGB(tissueAlbedo);rockLit=lichenLinearToSRGB(rockAlbedo); }
+            if (uMaterialDebug==3) { lichenLit=normal*.5+.5;rockLit=lichenLit; }
+            if (uMaterialDebug==4) { lichenLit=vec3(rough);rockLit=vec3(.9); }
+            if (uMaterialDebug==5) { lichenLit=vec3(tissueWet,localWater.g,localWater.b);rockLit=lichenLit; }
+            if (uMaterialDebug==6) { lichenLit=lichenGGX(normal,viewDir,lightDir,vec3(0),rough,cavityAO)*shadow;rockLit=vec3(.01); }
+            if (uMaterialDebug==7) { lichenLit=vec3(1);rockLit=vec3(.0); }
+          }
           vec3 finalLinear = mix(rockLit, lichenLit, thallusAlpha);
 
           // Macro Photography Optical Polish (Subtle 100mm f/2.8 Peripheral Vignette & Film Grain)
-          if (uMacroOptics > 0.01) {
+          if (!uRealism && uMacroOptics > 0.01) {
             float radialDist = length(vUv - 0.5);
             float vignette = 1.0 - smoothstep(0.35, 0.82, radialDist) * 0.28 * uMacroOptics;
             float filmGrain = (hash21(vUv * 1024.0 + fract(uTime)) - 0.5) * 0.018 * uMacroOptics;
             finalLinear = finalLinear * vignette + filmGrain;
           }
 
-          // ACES-inspired filmic tone mapping
+          // ACES-inspired filmic tone mapping (legacy comparison only)
+          if (!uRealism) {
           finalLinear = (finalLinear * (2.51 * finalLinear + 0.03)) / (finalLinear * (2.43 * finalLinear + 0.59) + 0.14);
           finalLinear = pow(clamp(finalLinear, 0.0, 1.0), vec3(1.0 / 2.2));
 
@@ -2544,6 +2608,8 @@
           if (uGrayscaleProof) {
             float g = dot(finalLinear, vec3(0.299, 0.587, 0.114));
             finalLinear = vec3(g);
+          }
+
           }
 
           // Optional science-eye map of the SAME physical fields that steer
@@ -2580,7 +2646,7 @@
         gl.shaderSource(shader, source);
         gl.compileShader(shader);
         if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-          console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+          const detail=gl.getShaderInfoLog(shader); gl.deleteShader(shader); throw new Error('Lichen shader compile failed: '+detail);
         }
         return shader;
       }
@@ -2589,6 +2655,7 @@
       gl.attachShader(program, compileShader(gl.VERTEX_SHADER, vsSource));
       gl.attachShader(program, compileShader(gl.FRAGMENT_SHADER, fsSource));
       gl.linkProgram(program);
+      if (!gl.getProgramParameter(program,gl.LINK_STATUS)) throw new Error('Lichen shader link failed: '+gl.getProgramInfoLog(program));
       gl.useProgram(program);
 
       // The fullscreen macro shader MUST own a persistent VAO.
@@ -2617,6 +2684,15 @@
         return tex;
       }
 
+      let compositor=null;
+      try {compositor=window.createLichenCompositor(gl);} catch(error) {
+        params.realismEnabled=false;console.warn('Coherent renderer unavailable; legacy artwork retained.',error);
+      }
+      const tissueHydration = window.LichenHydration.create({size:GRID_SIZE,waterField,biomass,initial:params.ambientHydration});
+      const hydrationTex=createFieldTexture(5);
+      const hydrationPixels=new Uint8Array(NUM_CELLS*4);
+      const terrainTex=createFieldTexture(6);
+      const terrainPixels=new Float32Array(NUM_CELLS*4);
       const bioTex = createFieldTexture(0);
       const auxTex = createFieldTexture(1);
       const substrateTex = createFieldTexture(3);
@@ -2627,6 +2703,14 @@
 
       // Uniform Locations
       const uniforms = {
+        uRealism:gl.getUniformLocation(program,'uRealism'),
+        uMaterialDebug:gl.getUniformLocation(program,'uMaterialDebug'),
+        uTissueCharacter:gl.getUniformLocation(program,'uTissueCharacter'),
+        uSceneTilt:gl.getUniformLocation(program,'uSceneTilt'),
+        uMeshOwnsFoliose:gl.getUniformLocation(program,'uMeshOwnsFoliose'),
+        uMeshColonyIds:gl.getUniformLocation(program,'uMeshColonyIds'),
+        uHydration:gl.getUniformLocation(program,'uHydration'),
+        uTerrain:gl.getUniformLocation(program,'uTerrain'),
         uBioTex: gl.getUniformLocation(program, 'uBioTex'),
         uAuxTex: gl.getUniformLocation(program, 'uAuxTex'),
         uColorRamp: gl.getUniformLocation(program, 'uColorRamp'),
@@ -2666,6 +2750,7 @@
 
       // Resize Canvas to match DPI
       function resizeCanvas() {
+        updateScaleBarLabel();
         const rect = canvas.parentElement.getBoundingClientRect();
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const rawSize = Math.min(rect.width || 600, rect.height || 600);
@@ -2687,7 +2772,11 @@
       let lastPanClientY = 0;
 
       function updateScaleBarLabel() {
-        const mm = (5.0 / params.zoom).toFixed(1);
+        // The 1×1 substrate is an artistic 50 mm field. Lobe lengths and shell
+        // thickness use these same world units; the bar follows CSS projection.
+        const width=canvas.getBoundingClientRect().width||512;
+        const bar=document.getElementById('scaleBarRule');
+        const mm=((bar?.getBoundingClientRect().width||48)/width*50/params.zoom).toFixed(1);
         const label = document.getElementById('scaleBarLabel');
         if (label) label.textContent = `${mm} mm`;
       }
@@ -3370,12 +3459,37 @@
           // Paused simulation should resume without a burst of catch-up ticks.
           growthAccumulatorMs = 0;
         }
+        // Weather has its own clock: paused growth can still absorb a local mist.
+        // Read-only export frames never mutate tissue water or morphology.
+        if (!exportPass || advance) tissueHydration.step(dtMs/1000);
         updateSmoothRenderTextures(dtMs, exportPass && !advance);
 
         // Restore the full-screen shader/VAO explicitly after every optional
         // mesh pass. One animation frame and one export frame use the same path.
+        const coherent=params.realismEnabled !== false && !!compositor;
+        if (coherent) compositor.begin(canvas.width,canvas.height);
+        else { gl.bindFramebuffer(gl.FRAMEBUFFER,null); gl.viewport(0,0,canvas.width,canvas.height); gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); }
         gl.useProgram(program);
         gl.bindVertexArray(quadVao);
+        gl.uniform1i(uniforms.uRealism,coherent?1:0);
+        gl.uniform1i(uniforms.uMaterialDebug,params.materialDebug);
+        gl.uniform1f(uniforms.uTissueCharacter,params.tissueCharacter);
+        gl.uniform1f(uniforms.uSceneTilt,params.geometryTilt);
+        const meshIds=geometryLayer && params.geometryQuality!=='off' && params.renderLayer!=='base'
+          ? geometryLayer.prepare(nowMs) : [];
+        gl.uniform1i(uniforms.uMeshOwnsFoliose,meshIds.length?1:0);
+        gl.uniform3f(uniforms.uMeshColonyIds,...[0,1,2].map(i=>meshIds[i]===undefined?-1:((meshIds[i]*37)&255)/255));
+        tissueHydration.encodeRGBA(hydrationPixels);
+        for(let i=0,j=0;i<NUM_CELLS;i++,j+=4){
+          terrainPixels[j]=rockField[i];
+          terrainPixels[j+1]=rockWeathering?rockWeathering.fields.etched[i]:0;
+          terrainPixels[j+3]=1;
+        }
+        gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D,hydrationTex);
+        gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,GRID_SIZE,GRID_SIZE,0,gl.RGBA,gl.UNSIGNED_BYTE,hydrationPixels);
+        gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D,terrainTex);
+        gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,GRID_SIZE,GRID_SIZE,0,gl.RGBA,gl.FLOAT,terrainPixels);
+        gl.uniform1i(uniforms.uHydration,5);gl.uniform1i(uniforms.uTerrain,6);
         // Upload updated biological state textures
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, bioTex);
@@ -3440,7 +3554,9 @@
         gl.uniform1f(uniforms.uZoom, params.zoom);
         gl.uniform2f(uniforms.uPan, params.panX, params.panY);
 
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        if (coherent) {gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.depthMask(true);}
+        if (params.renderLayer!=='mesh') gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        gl.disable(gl.DEPTH_TEST);
 
         if (!exportPass && nowMs-lastSubstrateStatusMs>2500) {
           lastSubstrateStatusMs=nowMs;
@@ -3461,10 +3577,10 @@
           }
         }
 
-        if (geometryLayer && params.geometryQuality !== 'off') {
+        if (geometryLayer && params.geometryQuality !== 'off' && params.renderLayer!=='base') {
           try {
             const meshStats = geometryLayer.draw(nowMs, {
-              mainProgram: program, bioTex, auxTex, light: [lx, ly, lz]
+              mainProgram: program, bioTex, auxTex, hydrationTex, terrainTex, light: [lx, ly, lz]
             });
             if (meshStatus && (!exportPass) && nowMs-lastGeometryLabelMs>1500) {
               lastGeometryLabelMs=nowMs;
@@ -3485,6 +3601,9 @@
             gl.useProgram(program);
           }
         }
+        if (coherent) compositor.present({macroOptics:params.materialDebug?0:params.macroOptics,
+          grayscale:params.grayscaleProof,time:nowMs*.001,debug:params.materialDebug>=2,
+          exposure:params.exposure});
         if (!exportPass) requestAnimationFrame(renderLoop);
       }
 
@@ -3510,6 +3629,19 @@
         }
       }
 
+      const specimenState=window.createLichenSpecimenState({
+        fields:{biomass,nextBiomass,ageField,stressField,crackField,necrosisField,nutrientField,nextNutrient,waterField,fruitingField,speciesField,colonyIdField,rockField,colonyOriginX,colonyOriginY},
+        params,hydration:tissueHydration,weathering:rockWeathering,ecology:substrateEcology,
+        getState:()=>({simYears,isRunning,nextColonyCounter,randomState,simulationTick}),
+        setState:s=>{simYears=s.simYears;isRunning=s.isRunning;nextColonyCounter=s.nextColonyCounter;randomState=s.randomState;simulationTick=s.simulationTick;},
+        invalidate:()=>{displayReady=false;lastWeatheringRevision=-1;growthAccumulatorMs=0;syncTextures();if(geometryLayer && geometryLayer.invalidate)geometryLayer.invalidate();}
+      });
+      window.setupLichenSpecimenStudio({params,canvas,gl,
+        loadSpecimen:specimenState.loadSpecimen,setWet:specimenState.setWet,
+        capture:specimenState.capture,restore:specimenState.restore,
+        stepWeather:seconds=>tissueHydration.step(seconds),
+        render:()=>renderLoop(0,true,false,0)
+      });
       requestAnimationFrame(renderLoop);
     })();
   </script>

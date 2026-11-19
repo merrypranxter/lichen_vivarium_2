@@ -87,6 +87,14 @@
       etched.fill(0);oxides.fill(0);organics.fill(0);memory.fill(0);
       tick=0;revision++;
     }
+    function setTick(value){
+      if(!Number.isSafeInteger(value)||value<0)
+        throw Error('Weathering tick must be a nonnegative safe integer');
+      tick=value;
+      // Restoring a clock accompanies restored CPU records. Force the next
+      // GPU upload without clearing any persistent geological history.
+      revision++;
+    }
     function habitatFactor(i,species){
       const p=species===0?{etch:.52,oxide:.12}:
         species===3?{etch:.44,oxide:.10}:
@@ -127,7 +135,7 @@
         meanOrganic:totalR/count,scarCoverage:coverage/count,maxEtch};
     }
     return {step,reset,habitatFactor,nutrientFactor,moisturePocket,
-      encodeRGBA,statistics,getRevision:()=>revision,
+      encodeRGBA,statistics,getRevision:()=>revision,getTick:()=>tick,setTick,
       fields:{etched,oxides,organics,memory},traits};
   }
   window.LichenRockWeathering={create};

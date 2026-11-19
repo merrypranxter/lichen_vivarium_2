@@ -30,6 +30,11 @@ layout(location=6) in vec3 aCortexNormal; // radial surface normal in 3D anatomy
 layout(location=7) in vec2 aCortexUV;     // around-tube / along-branch coordinates
 uniform sampler2D uMeshBio;
 uniform sampler2D uMeshAux;
+uniform sampler2D uMeshHydration;
+uniform sampler2D uMeshTerrain;
+uniform bool uMeshRealism;
+uniform float uMeshMarginEnergy;
+uniform float uMeshWeatheringRelief;
 uniform float uMeshZoom;
 uniform vec2 uMeshPan;
 uniform float uMeshWet;
@@ -61,6 +66,7 @@ void main() {
   vec4 b = texture(uMeshBio, clamp(aBiologySample,0.002,0.998));
   vec4 aux = texture(uMeshAux, clamp(aBiologySample,0.002,0.998));
   float alpha = 0.0;
+  vec3 deformedNormal=aCortexNormal;
 
   if (kind < 0.5) {
     // A real 3D podetium with a stalk, outward flaring rim and inward-dipping cup.
@@ -83,9 +89,39 @@ void main() {
     aux = texture(uMeshAux, clamp(uv,0.002,0.998));
     float age = smoothstep(0.003,0.17,b.g);
     float mature = smoothstep(0.055,0.29,b.r);
-    float curl = aLocal.z * (0.5+0.5*(1.0-uMeshWet))
-                 * max(0.0,uMeshLobeCurl) * age;
-    baseZ = (0.0025 + 0.023*curl*uMeshMorph) * mature * uMeshDepth;
+    if(uMeshRealism) {
+      // Local shape water has its own relaxation time. Preserve shell thickness
+      // while the free part of each lobe slowly flattens after misting.
+      float shapeWater=texture(uMeshHydration,clamp(uv,0.002,0.998)).b;
+      float attachment=aStemRoot.z;
+      float upperSkinZ=aLocal.z+aGrowth.y;
+      float freeLift=max(0.0,upperSkinZ-attachment);
+      float curlScale=mix(1.12,0.58,shapeWater)*max(0.0,uMeshLobeCurl)
+                      *clamp(uMeshMarginEnergy,0.25,1.8);
+      float shapeScale=mix(1.0,curlScale,uMeshMorph);
+      baseZ=(upperSkinZ+freeLift*(shapeScale-1.0)-aGrowth.y)*uMeshDepth;
+      // Transform the analytic shell normal with the actual z deformation.
+      // Include spatially varying shape water rather than assuming a uniform wet
+      // scalar, then interpolate these normals across the coarse triangles.
+      if(kind<1.15) {
+        vec2 e=vec2(1.0/256.0,0.0);
+        vec2 waterGradient=vec2(
+          texture(uMeshHydration,clamp(uv+e.xy,0.002,0.998)).b-
+          texture(uMeshHydration,clamp(uv-e.xy,0.002,0.998)).b,
+          texture(uMeshHydration,clamp(uv+e.yx,0.002,0.998)).b-
+          texture(uMeshHydration,clamp(uv-e.yx,0.002,0.998)).b)/(2.0*e.x);
+        vec2 scaleGradient=-0.54*waterGradient*max(0.0,uMeshLobeCurl)
+                     *clamp(uMeshMarginEnergy,0.25,1.8)*uMeshMorph;
+        float nz=abs(aCortexNormal.z)<0.001?0.001:aCortexNormal.z;
+        vec2 slope=-aCortexNormal.xy/nz;
+        slope=(slope*shapeScale+freeLift*scaleGradient)*uMeshDepth;
+        deformedNormal=normalize(vec3(-slope,1.0))*sign(nz);
+      }
+    } else {
+      float curl = aLocal.z * (0.5+0.5*(1.0-uMeshWet))
+                   * max(0.0,uMeshLobeCurl) * age;
+      baseZ = (0.0025 + 0.023*curl*uMeshMorph) * mature * uMeshDepth;
+    }
     alpha = smoothstep(0.045,0.24,b.r) * smoothstep(0.002,0.07,b.g)
             * (1.0-b.a);
     alpha *= 1.0-step(0.5,abs(aux.r*4.0-1.0));
@@ -145,6 +181,23 @@ void main() {
   }
 
   float h = max(0.0,baseZ);
+  if(uMeshRealism) {
+    vec4 terrain=texture(uMeshTerrain,clamp(uv,0.002,0.998));
+    // Identical source height and scale to the main substrate depth path.
+    h+=(terrain.r*0.35-0.08-terrain.g*0.042*uMeshWeatheringRelief)*0.12;
+    if(kind>0.5 && kind<1.15) {
+      vec2 e=vec2(1.0/256.0,0.0);
+      vec2 tx=texture(uMeshTerrain,clamp(uv+e.xy,0.002,0.998)).rg-
+              texture(uMeshTerrain,clamp(uv-e.xy,0.002,0.998)).rg;
+      vec2 ty=texture(uMeshTerrain,clamp(uv+e.yx,0.002,0.998)).rg-
+              texture(uMeshTerrain,clamp(uv-e.yx,0.002,0.998)).rg;
+      vec2 terrainSlope=vec2(tx.r*0.35-tx.g*0.042*uMeshWeatheringRelief,
+                           ty.r*0.35-ty.g*0.042*uMeshWeatheringRelief)*0.12/(2.0*e.x);
+      float nz=abs(deformedNormal.z)<0.001?0.001:deformedNormal.z;
+      vec2 slope=-deformedNormal.xy/nz+terrainSlope;
+      deformedNormal=normalize(vec3(-slope,1.0))*sign(nz);
+    }
+  }
   vec2 xy = uv;
   if (uMeshShadow) {
     // Shadows are projections of the triangle geometry along the real sun vector.
@@ -155,14 +208,15 @@ void main() {
     xy += vec2(-0.18,0.55) * h * uMeshTilt;
   }
   vec2 clip = (xy-0.5-uMeshPan)*2.0*uMeshZoom;
-  gl_Position = vec4(clip, uMeshShadow ? -0.95 : -0.17-h*0.5, 1.0);
+  gl_Position = vec4(clip, uMeshShadow ? -0.95 :
+      (uMeshRealism ? -h : -0.17-h*0.5), 1.0);
   vMeshWorld = vec3(uv,h);
   vMeshUV=uv;
   vMeshHeight=h;
   vMeshAlpha=alpha;
   vMeshSeed=aMeta.y;
   vMeshType=kind;
-  vCortexNormal=aCortexNormal;
+  vCortexNormal=deformedNormal;
   vCortexUV=aCortexUV;
   vCortexAge=b.g;
 }
@@ -179,6 +233,11 @@ in vec3 vCortexNormal;
 in vec2 vCortexUV;
 in float vCortexAge;
 uniform sampler2D uMeshRamp;
+uniform sampler2D uMeshHydration;
+uniform bool uMeshRealism;
+uniform int uMeshDebug;
+uniform float uMeshTissueCharacter;
+uniform float uMeshTilt;
 uniform float uMeshCortexDetail;
 uniform float uMeshPowder;
 uniform float uMeshFissures;
@@ -188,25 +247,56 @@ uniform int uMeshPaletteMode;
 uniform vec3 uMeshLight;
 uniform bool uMeshShadow;
 out vec4 fragColor;
+${window.LichenMaterial ? window.LichenMaterial.glsl : `
+vec3 lichenSRGBToLinear(vec3 c){return pow(max(c,vec3(0.0)),vec3(2.2));}
+float lichenTissueRoughness(float h,float f,float p){return mix(mix(.79,.48,h),.17,f);}
+vec3 lichenGGX(vec3 n,vec3 v,vec3 l,vec3 b,float r,float a){return b*(.15+max(0.0,dot(n,l)))*a;}
+`}
 float noise21(vec2 p) {
   return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);
 }
+vec2 cortexCellPoint(vec2 p) {
+  return fract(sin(vec2(dot(p,vec2(127.1,311.7)),
+                        dot(p,vec2(269.5,183.3))))*43758.5453);
+}
+float cortexCellBoundary(vec2 p) {
+  vec2 cell=floor(p),local=fract(p);
+  float first=9.0,second=9.0;
+  for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++) {
+    vec2 offset=vec2(float(i),float(j));
+    vec2 delta=offset+0.13+0.74*cortexCellPoint(cell+offset)-local;
+    float distanceSquared=dot(delta,delta);
+    if(distanceSquared<first){second=first;first=distanceSquared;}
+    else second=min(second,distanceSquared);
+  }
+  return sqrt(second)-sqrt(first);
+}
 void main() {
   if (vMeshAlpha < 0.026) discard;
+  // Coverage is stable in tissue coordinates; developed cortex is fully opaque.
+  // Only the biological growth front gets a cutout, never transparent mature skin.
+  if(uMeshRealism && !uMeshShadow &&
+     vMeshAlpha < noise21(floor(vMeshUV*4096.0))*0.10) discard;
   if (uMeshShadow) {
     fragColor=vec4(0.008,0.009,0.014,vMeshAlpha*0.34);
     return;
   }
   vec3 dpdx=dFdx(vMeshWorld);
   vec3 dpdy=dFdy(vMeshWorld);
-  vec3 n=vMeshType>1.5 ? normalize(vCortexNormal)
-                        : normalize(cross(dpdx,dpdy));
-  if (!gl_FrontFacing) n=-n;
-  if (vMeshType<1.5 || vMeshType>3.5) n.z=abs(n.z);
+  bool smoothFoliose=uMeshRealism && vMeshType>0.5 && vMeshType<1.15;
+  vec3 n=smoothFoliose ? normalize(vCortexNormal) :
+         ((uMeshRealism || vMeshType<1.5) ? normalize(cross(dpdx,dpdy))
+                        : normalize(vCortexNormal));
+  if (!smoothFoliose && !gl_FrontFacing) n=-n;
+  if (!uMeshRealism && (vMeshType<1.5 || vMeshType>3.5)) n.z=abs(n.z);
   n=normalize(n);
   vec3 light=normalize(uMeshLight);
   float diffuse=max(0.0,dot(n,light));
   float diffuseBack=max(0.0,dot(n,-light));
+  vec3 water=texture(uMeshHydration,clamp(vMeshUV,0.002,0.998)).rgb;
+  float localWet=uMeshRealism?water.r:uMeshWet;
+  float surfaceFilm=uMeshRealism?water.g:0.0;
+  float powderCoverage=0.0;
   // Root cortex and raised branches share a single living colony palette identity.
   float paletteAnatomy=min(vMeshType,2.0);
   float seed=fract(vMeshSeed*0.72+paletteAnatomy*0.33);
@@ -238,7 +328,7 @@ void main() {
     float around=vCortexUV.x*6.28318530718;
     float along=vCortexUV.y;
     float mature=smoothstep(0.035,0.24,vCortexAge);
-    float dry=clamp(1.0-uMeshWet,0.0,1.0);
+    float dry=clamp(1.0-localWet,0.0,1.0);
     float rough=clamp(uMeshCortexDetail,0.0,2.0);
     // Parallel cortical striae whose pitch bends slightly with hyphal growth.
     float axial=sin(around*(uMeshBranchPattern==1?9.0:16.0)
@@ -254,14 +344,15 @@ void main() {
     // Tip and mature-branch soralia: powdery fungal/photobiont granules, not
     // a uniform white coat. Ramalina also develops pale pseudocyphella-like
     // patches along its axial cortex.
-    float patch=noise21(floor(vec2(vCortexUV.x*8.0,along*9.0)
+    float soraliaPatch=noise21(floor(vec2(vCortexUV.x*8.0,along*9.0)
                               +vec2(vMeshSeed*47.0,vMeshSeed*13.0)));
     float powderGrain=noise21(floor(vec2(vCortexUV.x*320.0,along*240.0)
                                     +vec2(21.3,vMeshSeed*71.0)));
     float patchThreshold=uMeshBranchPattern==1?0.66:0.78;
-    float soralia=smoothstep(patchThreshold,0.98,patch)
+    float soralia=smoothstep(patchThreshold,0.98,soraliaPatch)
                  *smoothstep(0.43,0.93,powderGrain)
                  *mature*clamp(uMeshPowder,0.0,2.0);
+    powderCoverage=clamp(soralia*(1.0-localWet*.7),0.0,1.0);
     vec3 powderTone=mix(base*1.24,vec3(0.91,0.92,0.84),
                        uMeshPaletteMode==0?0.55:0.18);
     base=mix(base,powderTone,clamp(soralia*.82,0.0,.85));
@@ -299,7 +390,7 @@ void main() {
     float mineral=noise21(floor(vec2(vCortexUV.x*142.0,
                                      radial*168.0)+vMeshSeed*31.0));
     float rootAge=smoothstep(0.025,0.22,vCortexAge);
-    float rootWet=clamp(uMeshWet,0.0,1.0);
+    float rootWet=clamp(localWet,0.0,1.0);
     float rim=smoothstep(0.58,0.92,radial);
     // A dark prothallus-like attachment rim around living cortex.
     base=mix(base,base*0.43,clamp(rim*rootAge*.55,0.0,.72));
@@ -324,14 +415,71 @@ void main() {
                     +axial*22.0+vMeshSeed*18.0);
     float grit=noise21(floor(vec2(vCortexUV.x*130.0,
                       axial*95.0)+vMeshSeed*43.0));
-    float wet=clamp(uMeshWet,0.0,1.0);
+    float wet=clamp(localWet,0.0,1.0);
     base*=mix(0.40,0.66,wet)*(0.84+0.22*fiber+0.12*grit);
     n=normalize(n+vec3(cos(transverse)*.08*fiber,
                        sin(transverse)*.08*fiber,0.0));
     diffuse=max(0.0,dot(n,light));
     diffuseBack=max(0.0,dot(n,-light));
   }
-  if(vMeshType<1.5)base*=mix(0.89,1.07,granular);
+  if(vMeshType<1.5 && !uMeshRealism)base*=mix(0.89,1.07,granular);
+  if(uMeshRealism) {
+    bool underside=vMeshType>1.05 && vMeshType<1.15;
+    bool margin=vMeshType>1.15 && vMeshType<1.5;
+    // Tissue-bound smooth reticulation and shallow folds: separate from powder
+    // and independent of framebuffer resolution. Finite-difference screen
+    // derivatives convert relief into a tangent-space normal perturbation.
+    if(vMeshType>0.5 && vMeshType<1.05) {
+      vec2 tissue=vCortexUV*vec2(3.6,6.8);
+      float phase=vMeshSeed*6.2831853;
+      tissue+=vec2(sin(tissue.y*.75+phase),cos(tissue.x*.8-phase))*.18;
+      float boundary=cortexCellBoundary(tissue+vec2(phase*3.1,phase*5.7));
+      float width=max(.075,fwidth(boundary)*1.5);
+      float reticulate=1.0-smoothstep(0.0,width,boundary);
+      float cortexZone=(1.0-smoothstep(.72,1.0,vCortexUV.y))
+                       *(.35+.65*smoothstep(-.3,.8,sin(tissue.y*.7+phase)));
+      float folds=sin(vCortexUV.y*31.0+sin(vCortexUV.x*11.0+phase)*.9);
+      // Leathery cortex gets low uneven relief. The lobe folds, thickness and
+      // local water response carry its volume; cellular detail stays subordinate.
+      float relief=(reticulate*.000085*cortexZone+folds*.000025)
+                  *clamp(uMeshTissueCharacter,0.25,1.8);
+      vec3 r1=cross(dpdy,n),r2=cross(n,dpdx);
+      float surfaceDet=dot(dpdx,r1);
+      vec3 gradient=sign(surfaceDet)*(dFdx(relief)*r1+dFdy(relief)*r2);
+      n=normalize(abs(surfaceDet)*n-gradient);
+      if(uMeshPaletteMode==1) {
+        base=vec3(.72,.08,.38);
+        float lateral=abs(vCortexUV.x*2.0-1.0);
+        float accent=max(smoothstep(.83,1.0,lateral)*.22,
+                         smoothstep(.87,1.0,vCortexUV.y)*.32);
+        base=mix(base,vec3(.09,.45,.40),accent);
+      }
+      base*=.96+reticulate*.025*cortexZone+folds*.009;
+    }
+    // Anatomical pigment roles preserve a dominant cortex color; the lower
+    // cortex is a dark leathery tissue and the cut margin exposes warm medulla.
+    if(underside)base=base*0.19+vec3(0.025,0.016,0.012);
+    if(margin)base=mix(base*0.58,vec3(0.37,0.27,0.15),0.24);
+    base*=mix(1.0,0.67,localWet);
+    if(uMeshDebug==1)base=underside?vec3(.18,.16,.13):vec3(.51,.49,.43);
+    vec3 linearBase=lichenSRGBToLinear(base);
+    float roughness=lichenTissueRoughness(localWet,surfaceFilm,powderCoverage);
+    roughness=clamp(roughness+(uMeshTissueCharacter-1.0)*.12,0.12,0.95);
+    float contact=clamp((abs(n.z)*.22+.78),0.0,1.0);
+    vec3 view=normalize(vec3(.18*uMeshTilt,-.55*uMeshTilt,1.0));
+    vec3 lit=lichenGGX(n,view,light,linearBase,roughness,contact);
+    // Only thin margins transmit a little light. This is not alpha blending.
+    if(margin)lit+=linearBase*max(0.0,dot(-n,light))*.065;
+    if(uMeshDebug==2)lit=base;
+    if(uMeshDebug==3)lit=n*.5+.5;
+    if(uMeshDebug==4)lit=vec3(roughness);
+    if(uMeshDebug==5)lit=vec3(localWet,surfaceFilm,water.b);
+    if(uMeshDebug==6)lit=max(vec3(0.0),
+      lichenGGX(n,view,light,vec3(0.0),roughness,contact));
+    if(uMeshDebug==7)lit=vec3(1.0);
+    fragColor=vec4(max(lit,vec3(0.0)),1.0);
+    return;
+  }
   float sheen=pow(max(0.0,dot(reflect(-light,n),vec3(0.0,0.0,1.0))),32.0);
   vec3 lit=base*(0.24+diffuse*0.77+diffuseBack*0.12)+vec3(sheen*0.16);
   // A gentle spectral edge sheen remains subordinate to the detailed base shader.
@@ -376,7 +524,8 @@ void main() {
       'uMeshBranchHeight','uMeshBasalSpread','uMeshBasalFusion',
       'uMeshBasalVolume','uMeshMorph','uMeshLight','uMeshShadow',
       'uMeshPaletteMode','uMeshCortexDetail','uMeshPowder','uMeshFissures',
-      'uMeshBranchPattern']){
+      'uMeshBranchPattern','uMeshHydration','uMeshTerrain','uMeshRealism',
+      'uMeshDebug','uMeshTissueCharacter','uMeshMarginEnergy','uMeshWeatheringRelief']){
       loc[name]=gl.getUniformLocation(meshProgram,name);
     }
     const vao=gl.createVertexArray();
@@ -410,6 +559,7 @@ void main() {
     const folioseAnchors=new Map();
     const branchAnchors=new Map();
     let vertexCount=0, lastScanMs=-Infinity, lastBuildKey='', currentYear=0;
+    let renderedFolioseIds=[];
     let stats={cups:0,lobes:0,branchStems:0,branchSegments:0,
       basalThalli:0,fibrils:0,rhizines:0,rhizineSegments:0,
       rhizineForks:0,triangles:0,quality:'off'};
@@ -519,6 +669,7 @@ void main() {
       const max=getLimits(quality);
       let sawTissue=false;
       const known=new Set();
+      const knownBranches=new Set();
       // Scan 1/16 of the biological grid; no per-pixel per-frame CPU mesh generation.
       for(let y=4;y<GRID_SIZE-4;y+=4)for(let x=4;x<GRID_SIZE-4;x+=4){
         const i=y*GRID_SIZE+x;
@@ -536,6 +687,7 @@ void main() {
         }
         if(speciesField[i]===2&&biomass[i]>0.12){
           const col=colonyIdField[i];
+          knownBranches.add(col);
           if(col>0 && !branchAnchors.has(col)){
             const bx=colonyOriginX[col],by=colonyOriginY[col];
             // A surviving holdfast determines the 3D branch's position.
@@ -546,6 +698,10 @@ void main() {
           }
         }
       }
+      // A scraped or dead colony relinquishes its geometry budget, even when
+      // neighbors remain alive. Persistent identity does not mean immortal sites.
+      for(const id of folioseAnchors.keys())if(!known.has(id))folioseAnchors.delete(id);
+      for(const id of branchAnchors.keys())if(!knownBranches.has(id))branchAnchors.delete(id);
       if (!sawTissue) {
         cupAnchors.clear();folioseAnchors.clear();branchAnchors.clear();
         return;
@@ -610,14 +766,21 @@ void main() {
         cupGeometry(packed,o.anchor,o.seed,limit.cupSegments);
         cups++;
       }
-      for(const o of folioseAnchors.values()){
-        const count=Math.min(limit.lobeLimit,quality==='rich'?16:9);
-        for(let i=0;i<count;i++){
-          lobeGeometry(packed,o.anchor,o.seed,count,limit.lobeSteps,i);
-          leaves++;
+      let folioseColonies=0;
+      renderedFolioseIds=[];
+      for(const [colonyId,o] of folioseAnchors){
+        if(params.realismEnabled!==false && window.LichenFoliose){
+          renderedFolioseIds.push(colonyId);
+          leaves+=window.LichenFoliose.build(packed,o.anchor,o.seed,{quality}).lobes;
+        }else{
+          const count=Math.min(limit.lobeLimit,quality==='rich'?16:9);
+          for(let i=0;i<count;i++){
+            lobeGeometry(packed,o.anchor,o.seed,count,limit.lobeSteps,i);
+            leaves++;
+          }
         }
-        // Prevent an uncontrolled number of independently painted foliose colonies.
-        if(leaves>=limit.lobeLimit*3)break;
+        // Real sheets carry both skins and closed margins; cap specimen count.
+        if(++folioseColonies>=3)break;
       }
       // The holdfast shares the exact same colony origin as its branching
       // skeleton, so stems rise through a living thallus rather than merely
@@ -678,7 +841,7 @@ void main() {
     }
     function scan(nowMs,quality){
       if (quality==='off')return;
-      const buildKey=quality+'|'+(params.branchPattern||'cladonia')
+      const buildKey=quality+'|'+(params.realismEnabled!==false)+'|'+(params.branchPattern||'cladonia')
         +'|'+(params.branchDensity ?? 1)
         +'|'+(params.branchFibrils ?? 0.8)
         +'|'+((params.basalFusion ?? .9)>0.001?1:0)
@@ -693,9 +856,9 @@ void main() {
         cupAnchors.clear();folioseAnchors.clear();branchAnchors.clear(); // new slate
       }
       currentYear=year;
-      const before=cupAnchors.size+'|'+folioseAnchors.size+'|'+branchAnchors.size;
+      const before=cupAnchors.size+'|'+[...folioseAnchors.keys()].join(',')+'|'+[...branchAnchors.keys()].join(',');
       findAnchors(quality);
-      const after=cupAnchors.size+'|'+folioseAnchors.size+'|'+branchAnchors.size;
+      const after=cupAnchors.size+'|'+[...folioseAnchors.keys()].join(',')+'|'+[...branchAnchors.keys()].join(',');
       if(buildKey!==lastBuildKey||before!==after)rebuild(quality);
       lastBuildKey=buildKey;
     }
@@ -716,6 +879,22 @@ void main() {
         if(loc.uMeshBio!==null)gl.uniform1i(loc.uMeshBio,0);
         if(loc.uMeshAux!==null)gl.uniform1i(loc.uMeshAux,1);
         if(loc.uMeshRamp!==null)gl.uniform1i(loc.uMeshRamp,2);
+        if(bindings.hydrationTex){
+          gl.activeTexture(gl.TEXTURE0+5);
+          gl.bindTexture(gl.TEXTURE_2D,bindings.hydrationTex);
+        }
+        if(bindings.terrainTex){
+          gl.activeTexture(gl.TEXTURE0+6);
+          gl.bindTexture(gl.TEXTURE_2D,bindings.terrainTex);
+        }
+        gl.uniform1i(loc.uMeshHydration,5);
+        gl.uniform1i(loc.uMeshTerrain,6);
+        const realism=params.realismEnabled!==false;
+        gl.uniform1i(loc.uMeshRealism,realism?1:0);
+        gl.uniform1i(loc.uMeshDebug,params.materialDebug||0);
+        gl.uniform1f(loc.uMeshTissueCharacter,params.tissueCharacter??1);
+        gl.uniform1f(loc.uMeshMarginEnergy,params.marginEnergy??1);
+        gl.uniform1f(loc.uMeshWeatheringRelief,params.weatheringBefore?0:(params.weatheringRelief??.7));
         gl.uniform1f(loc.uMeshZoom,params.zoom);
         gl.uniform2f(loc.uMeshPan,params.panX,params.panY);
         gl.uniform1f(loc.uMeshWet,params.effectiveWetness);
@@ -740,8 +919,10 @@ void main() {
         // Cast coherent projected triangular shadows over existing rock/lichen.
         gl.disable(gl.DEPTH_TEST);
         gl.uniform1i(loc.uMeshShadow,1);
-        gl.drawArrays(gl.TRIANGLES,0,vertexCount);
-        gl.clear(gl.DEPTH_BUFFER_BIT);
+        if(!realism || (params.materialDebug||0)<2)
+          gl.drawArrays(gl.TRIANGLES,0,vertexCount);
+        if(!realism)gl.clear(gl.DEPTH_BUFFER_BIT);
+        else gl.disable(gl.BLEND);
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
         gl.depthMask(true);
@@ -762,7 +943,18 @@ void main() {
       gl.deleteVertexArray(vao);
       gl.deleteProgram(meshProgram);
     }
-    return {draw,stats:()=>({...stats}),dispose,debug:{getAnchorCounts:()=>
+    function invalidate(){
+      cupAnchors.clear();folioseAnchors.clear();branchAnchors.clear();
+      lastScanMs=-Infinity;lastBuildKey='';currentYear=0;vertexCount=0;
+      renderedFolioseIds=[];
+    }
+    function prepare(nowMs){
+      const quality=params.geometryQuality||'off';
+      if(quality==='off'||params.realismEnabled===false)return [];
+      scan(nowMs,quality);
+      return renderedFolioseIds.slice();
+    }
+    return {draw,prepare,stats:()=>({...stats}),dispose,invalidate,debug:{getAnchorCounts:()=>
       ({cups:cupAnchors.size,foliose:folioseAnchors.size,
         fruticose:branchAnchors.size})}};
   };

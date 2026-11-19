@@ -149,8 +149,14 @@
       return {meanWater:wet/count,meanCrevice:crev/count,
         meanMineral:min/count,meanExposure:expo/count};
     }
+    function setTick(value){
+      if(!Number.isSafeInteger(value)||value<0)
+        throw Error('Substrate tick must be a nonnegative safe integer');
+      ticks=value;
+    }
     return {initialize,step,growthFactor,replenishment,desiccation,
-      attachWeathering,encodeRGBA,statistics,fields:{crevice,mineral,exposure},profiles};
+      attachWeathering,encodeRGBA,statistics,getTick:()=>ticks,setTick,
+      fields:{crevice,mineral,exposure},profiles};
   }
   window.LichenSubstrateEcology={create};
 })();
