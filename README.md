@@ -43,6 +43,21 @@ Controls: **Developmental Unfolding** 0–100% (0 uses original shape staging), 
 
 This is **dynamic heightfield/parallax morphogenesis**, not generated overhanging polygonal meshes. It preserves the renderer's WebGL2/iPhone architecture while improving the physically apparent motion. It intentionally uses simulated tissue age, biomass, fruiting and lagged hydration rather than decorative periodic sine animations, and the exact same shader runs for on-screen preview, GIF and MP4.
 
+## Phase 7: organic basal thalli & genuine attachment surfaces
+
+The optional real-geometry pass now connects fruticose stems to their colonies with a **thin layered 3D holdfast shell** instead of visibly resting individual tubular branches on a flat rock texture.
+
+- **Shared colony origin:** the branching skeleton and its basal cortex are created using the exact same `colonyOriginX/Y` coordinates. Each real stem grows through its root rind.
+- **Physical layered shell:** a gently domed upper surface transitions through irregular cortex, a feathered expanding margin and tucked-under skirt into a thin substrate-facing underside. It is actual WebGL2 triangle geometry, not simply an image-space normal effect.
+- **Anatomically attached microtexture:** the basal cortex has radial fungal striae, aged nodules, mineral mottling and a darker prothallus-like perimeter. Its base palette identity matches the stem and tip-fibril material instead of introducing unrelated color.
+- **Real biological control:** root skin opacity fades according to its *local* biomass, tissue age and necrosis; radius, thickness and vertical shape respond to user controls and hydration. Dispersing/dead colonies do not leave opaque decorations behind.
+- **Motion controls:** `Motion → True 3D Geometry → Living Holdfast & Basal Thallus` includes Attachment/Fusion (0–100%; zero removes the extra root shell), Radial Thallus Spread (0.5–1.6×) and Root Tissue Thickness (0.25–2×), with Tender Attachment and Ancient Holdfast presets. These material/morphological settings do not reset the living ecosystem or regenerate the mesh except when attachment goes to/from zero.
+- **Optional and resource-bounded:** up to one holdfast per visible branching colony, obeying the prior Lite (2 colonies) and Rich (4 colonies) caps. The new shell adds about 216 triangles per holdfast in Lite, or 324 in Rich. In the existing three-colony fixture with one fruticose organism, Lite builds 3,096 triangles total and Rich 11,866. These are simulated geometry counts, **not** observed iPhone frame rates.
+- **Safety:** the existing 2.5D photographic shader continues to render underneath and is preserved when geometry quality is Off, when attachment is zero, or if the optional mesh setup fails. PNG, GIF and MP4 capture the same composite renderer.
+- **Regression coverage:** `node --test tests/*.test.cjs` now runs 13 tests, including holdfast/branch shared anchors, finite surface normals, bounded geometry, restoration after disabling root attachment, and GPU-only thickness/spread updates.
+
+This is a **layered, finite-thickness attachment shell** and tissue-coupled mesh, not a general volumetric tissue simulation or freely orbitable 3D lichen world. Real shader compilation and high-resolution encoding on iPhone Safari remain unverified and should be tried in the device browser.
+
 ## Phase 6: cortical micromorphology and physical tip fibrils
 
 The **Motion → True 3D Geometry → Microscopic Cortex & Tip Anatomy** controls now texture the *actual 3D fruticose branch surfaces*, rather than scattering generic noise in screen space:
