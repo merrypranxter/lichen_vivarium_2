@@ -23,6 +23,8 @@ layout(location=0) in vec2 aAnchor;
 layout(location=1) in vec3 aLocal;
 layout(location=2) in vec2 aMeta;
 layout(location=3) in vec2 aBiologySample; // biology can sit near the geometric Worley center
+layout(location=4) in vec3 aStemRoot;  // base of this specific tube segment
+layout(location=5) in vec2 aGrowth;    // developmental birth threshold, emergence width
 uniform sampler2D uMeshBio;
 uniform sampler2D uMeshAux;
 uniform float uMeshZoom;
@@ -32,6 +34,7 @@ uniform float uMeshDepth;
 uniform float uMeshTilt;
 uniform float uMeshCupRise;
 uniform float uMeshLobeCurl;
+uniform float uMeshBranchHeight;
 uniform float uMeshMorph;
 uniform vec3 uMeshLight;
 uniform bool uMeshShadow;
@@ -43,7 +46,7 @@ out float vMeshSeed;
 out float vMeshHeight;
 
 void main() {
-  float kind = aMeta.x; // 0: real hollow cup, 1: actual foliose ribbon.
+  float kind = aMeta.x; // 0: hollow cup, 1: foliose ribbon, 2: fruticose branch.
   float baseZ = 0.0;
   vec2 uv = aAnchor;
   vec4 b = texture(uMeshBio, clamp(aBiologySample,0.002,0.998));
@@ -64,7 +67,7 @@ void main() {
     alpha = smoothstep(0.012,0.19,fruit)
           * smoothstep(0.048,0.18,b.r) * (1.0-b.a);
     alpha *= 1.0-step(0.5,abs(aux.r*4.0-3.0));
-  } else {
+  } else if (kind < 1.5) {
     // Lift the edges of a triangulated foliose sheet. Keep the root attached.
     uv += aLocal.xy;
     b = texture(uMeshBio, clamp(uv,0.002,0.998));
@@ -77,6 +80,20 @@ void main() {
     alpha = smoothstep(0.045,0.24,b.r) * smoothstep(0.002,0.07,b.g)
             * (1.0-b.a);
     alpha *= 1.0-step(0.5,abs(aux.r*4.0-1.0));
+  } else {
+    // Actual tubular branch skeleton. Geometry is born at the segment's
+    // attachment node, then extrudes and thickens as that tissue matures.
+    // Zero decorative time wobble: biomass and tissue age drive every tip.
+    float livingStage = clamp(0.23*b.r + 0.77*smoothstep(0.008,0.27,b.g),0.0,1.0);
+    float emergence = smoothstep(aGrowth.x,
+                                 aGrowth.x + max(0.045,aGrowth.y), livingStage);
+    vec3 grown = mix(aStemRoot,aLocal,emergence);
+    uv += grown.xy;
+    baseZ = grown.z * 0.115 * uMeshDepth * max(0.0,uMeshBranchHeight);
+    alpha = smoothstep(0.065,0.23,b.r)
+           * smoothstep(0.003,0.06,b.g) * (1.0-b.a)
+           * smoothstep(0.01,0.24,emergence);
+    alpha *= 1.0-step(0.5,abs(aux.r*4.0-2.0));
   }
 
   float h = max(0.0,baseZ);
@@ -135,7 +152,8 @@ void main() {
   if (uMeshPaletteMode == 6) {
     base=texture(uMeshRamp,vec2(fract(seed+vMeshHeight*1.25),0.5)).rgb;
   } else if (uMeshPaletteMode == 0) {
-    base=vMeshType<0.5 ? vec3(0.70,0.83,0.47) : vec3(0.48,0.63,0.31);
+    base=vMeshType<0.5 ? vec3(0.70,0.83,0.47) :
+         (vMeshType<1.5 ? vec3(0.48,0.63,0.31) : vec3(0.70,0.76,0.52));
   } else if (uMeshPaletteMode == 1) {
     base=mix(vec3(0.98,0.11,0.79),vec3(0.08,0.96,0.94),seed);
   } else if (uMeshPaletteMode == 2) {
@@ -156,7 +174,9 @@ void main() {
   float fringe=pow(1.0-abs(n.z),2.0);
   lit+=base*fringe*0.12;
   lit=lit/(lit+vec3(0.30));
-  fragColor=vec4(clamp(lit,0.0,1.0),vMeshAlpha*(vMeshType<0.5?0.95:0.74));
+  // Branch tubes have an opaque cortex while foliose tips are translucent.
+  float surfaceAlpha=vMeshType<0.5?0.95:(vMeshType<1.5?0.74:0.96);
+  fragColor=vec4(clamp(lit,0.0,1.0),vMeshAlpha*surfaceAlpha);
 }
 `;
 
@@ -187,7 +207,7 @@ void main() {
     const loc={};
     for(const name of ['uMeshBio','uMeshAux','uMeshRamp','uMeshZoom','uMeshPan',
       'uMeshWet','uMeshDepth','uMeshTilt','uMeshCupRise','uMeshLobeCurl',
-      'uMeshMorph','uMeshLight','uMeshShadow','uMeshPaletteMode']){
+      'uMeshBranchHeight','uMeshMorph','uMeshLight','uMeshShadow','uMeshPaletteMode']){
       loc[name]=gl.getUniformLocation(meshProgram,name);
     }
     const vao=gl.createVertexArray();
@@ -195,8 +215,9 @@ void main() {
     if(!vao || !buffer)throw Error('3D mesh buffer allocation failed');
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
-    // [anchor.xy, local.xyz, type, colorSeed, biological-sampling.xy]
-    const stride=9*4;
+    // [anchor.xy, local.xyz, type, colorSeed, sample.xy,
+    //  tube-start.xyz, birth-threshold, duration]
+    const stride=14*4;
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0,2,gl.FLOAT,false,stride,0);
     gl.enableVertexAttribArray(1);
@@ -205,20 +226,26 @@ void main() {
     gl.vertexAttribPointer(2,2,gl.FLOAT,false,stride,5*4);
     gl.enableVertexAttribArray(3);
     gl.vertexAttribPointer(3,2,gl.FLOAT,false,stride,7*4);
+    gl.enableVertexAttribArray(4);
+    gl.vertexAttribPointer(4,3,gl.FLOAT,false,stride,9*4);
+    gl.enableVertexAttribArray(5);
+    gl.vertexAttribPointer(5,2,gl.FLOAT,false,stride,12*4);
     gl.bindVertexArray(null);
 
     const cupAnchors=new Map();
     const folioseAnchors=new Map();
-    let vertexCount=0, lastScanMs=-Infinity, lastQuality='', currentYear=0;
-    let stats={cups:0,lobes:0,triangles:0,quality:'off'};
+    const branchAnchors=new Map();
+    let vertexCount=0, lastScanMs=-Infinity, lastBuildKey='', currentYear=0;
+    let stats={cups:0,lobes:0,branchStems:0,branchSegments:0,triangles:0,quality:'off'};
     function getLimits(quality) {
       return quality==='rich'
-        ? {cupLimit:44,lobeLimit:16,cupSegments:18,lobeSteps:14}
-        : {cupLimit:16,lobeLimit:9,cupSegments:12,lobeSteps:10};
+        ? {cupLimit:44,lobeLimit:16,cupSegments:18,lobeSteps:14,branchLimit:4}
+        : {cupLimit:16,lobeLimit:9,cupSegments:12,lobeSteps:10,branchLimit:2};
     }
     function add(arr,anchor,x,y,z,type,seed){
       arr.push(anchor[0],anchor[1],x,y,z,type,seed,
-               anchor[2] ?? anchor[0],anchor[3] ?? anchor[1]);
+               anchor[2] ?? anchor[0],anchor[3] ?? anchor[1],
+               0,0,0,0,0);
     }
     function cupGeometry(arr,anchor,seed,segments){
       // Each annular ring is a real 3D surface. The last two rings fold inward,
@@ -283,9 +310,20 @@ void main() {
           }
           known.add(col);
         }
+        if(speciesField[i]===2&&biomass[i]>0.12){
+          const col=colonyIdField[i];
+          if(col>0 && !branchAnchors.has(col)){
+            const bx=colonyOriginX[col],by=colonyOriginY[col];
+            // A surviving holdfast determines the 3D branch's position.
+            branchAnchors.set(col,{
+              anchor:[(bx+0.5)/GRID_SIZE,(by+0.5)/GRID_SIZE],
+              seed:hash(col,47)
+            });
+          }
+        }
       }
       if (!sawTissue) {
-        cupAnchors.clear();folioseAnchors.clear();
+        cupAnchors.clear();folioseAnchors.clear();branchAnchors.clear();
         return;
       }
       // Stable cell-lattice anchors. Cells are only allocated when fruiting
@@ -341,7 +379,7 @@ void main() {
     function rebuild(quality){
       const limit=getLimits(quality);
       const packed=[];
-      let cups=0,leaves=0;
+      let cups=0,leaves=0,branchStems=0,branchSegments=0;
       for(const o of cupAnchors.values()){
         if(cups>=limit.cupLimit)break;
         cupGeometry(packed,o.anchor,o.seed,limit.cupSegments);
@@ -356,25 +394,45 @@ void main() {
         // Prevent an uncontrolled number of independently painted foliose colonies.
         if(leaves>=limit.lobeLimit*3)break;
       }
-      vertexCount=packed.length/9;
+      // Fruticose anatomy is built once from a stable colony identity.
+      // Its triangle vertices grow entirely in the GPU as biological
+      // age/biomass changes, so nothing flickers between rebuilds.
+      if(window.LichenBranchSkeleton &&
+         typeof window.LichenBranchSkeleton.grow==='function'){
+        for(const o of branchAnchors.values()){
+          if(branchStems>=limit.branchLimit)break;
+          const result=window.LichenBranchSkeleton.grow(packed,o.anchor,o.seed,{
+            mode:params.branchPattern||'cladonia',
+            quality,density:params.branchDensity ?? 1
+          });
+          if(result.segments>0){
+            branchStems++;
+            branchSegments+=result.segments;
+          }
+        }
+      }
+      vertexCount=packed.length/14;
       gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
       gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(packed),gl.DYNAMIC_DRAW);
-      stats={cups,lobes:leaves,triangles:vertexCount/3,quality};
+      stats={cups,lobes:leaves,branchStems,branchSegments,
+             triangles:vertexCount/3,quality};
     }
     function scan(nowMs,quality){
       if (quality==='off')return;
-      if (quality===lastQuality && nowMs>=lastScanMs && nowMs-lastScanMs<1700)return;
+      const buildKey=quality+'|'+(params.branchPattern||'cladonia')
+        +'|'+(params.branchDensity ?? 1);
+      if(buildKey===lastBuildKey && nowMs>=lastScanMs && nowMs-lastScanMs<1700)return;
       lastScanMs=nowMs;
       const year=getYears();
       if (year<currentYear-0.8) {
-        cupAnchors.clear();folioseAnchors.clear(); // new slate starts a new life.
+        cupAnchors.clear();folioseAnchors.clear();branchAnchors.clear(); // new slate
       }
       currentYear=year;
-      const before=cupAnchors.size+'|'+folioseAnchors.size;
+      const before=cupAnchors.size+'|'+folioseAnchors.size+'|'+branchAnchors.size;
       findAnchors(quality);
-      const after=cupAnchors.size+'|'+folioseAnchors.size;
-      if(quality!==lastQuality||before!==after)rebuild(quality);
-      lastQuality=quality;
+      const after=cupAnchors.size+'|'+folioseAnchors.size+'|'+branchAnchors.size;
+      if(buildKey!==lastBuildKey||before!==after)rebuild(quality);
+      lastBuildKey=buildKey;
     }
 
     function draw(nowMs,bindings){
@@ -400,6 +458,7 @@ void main() {
         gl.uniform1f(loc.uMeshTilt,params.geometryTilt ?? 0.65);
         gl.uniform1f(loc.uMeshCupRise,params.cupRise ?? 1);
         gl.uniform1f(loc.uMeshLobeCurl,params.lobeUnfurl ?? 1);
+        gl.uniform1f(loc.uMeshBranchHeight,params.branchHeight ?? 1);
         gl.uniform1f(loc.uMeshMorph,params.morphogenesis ?? 1);
         gl.uniform3f(loc.uMeshLight,bindings.light[0],bindings.light[1],bindings.light[2]);
         gl.uniform1i(loc.uMeshPaletteMode,params.paletteMode);
@@ -431,6 +490,7 @@ void main() {
       gl.deleteProgram(meshProgram);
     }
     return {draw,stats:()=>({...stats}),dispose,debug:{getAnchorCounts:()=>
-      ({cups:cupAnchors.size,foliose:folioseAnchors.size})}};
+      ({cups:cupAnchors.size,foliose:folioseAnchors.size,
+        fruticose:branchAnchors.size})}};
   };
 })();
