@@ -764,6 +764,55 @@
           <button id="substrateHarshPreset" class="lichen-studio-button">☀️ Harsh Slate</button>
         </div>
       </div>
+      <div class="rounded-xl border border-amber-800/50 bg-[#23170f]/70 p-3 space-y-3">
+        <h3 class="text-sm font-bold text-amber-200">🧪 Biogenic Weathering · Geological Memory</h3>
+        <p class="text-[11px] text-slate-400 leading-relaxed">
+          Mature colonies gradually etch mineral pits, deposit iron-toned oxides
+          and leave organic stains. Their traces persist after the living thallus
+          dies or is cleared. Later colonies can exploit the altered rock.
+        </p>
+        <label class="block text-xs text-slate-200" for="weatheringIntensitySlider">
+          <span class="flex justify-between mb-1"><strong>Chemical weathering speed</strong>
+            <output id="weatheringIntensityVal" class="mono text-amber-200">1.00x</output></span>
+          <input id="weatheringIntensitySlider" class="w-full" type="range" min="0" max="2" step="0.05" value="1"/>
+          <span class="block text-[10px] text-slate-500">0 freezes new weathering without erasing old scars.</span>
+        </label>
+        <label class="block text-xs text-slate-200" for="weatheringErosionSlider">
+          <span class="flex justify-between mb-1"><span>Micro-etching &amp; mineral dissolution</span>
+            <output id="weatheringErosionVal" class="mono text-amber-200">1.00x</output></span>
+          <input id="weatheringErosionSlider" class="w-full" type="range" min="0" max="2" step="0.05" value="1"/>
+        </label>
+        <label class="block text-xs text-slate-200" for="weatheringOxidesSlider">
+          <span class="flex justify-between mb-1"><span>Oxide and mineral bloom</span>
+            <output id="weatheringOxidesVal" class="mono text-amber-200">0.90x</output></span>
+          <input id="weatheringOxidesSlider" class="w-full" type="range" min="0" max="2" step="0.05" value="0.9"/>
+        </label>
+        <label class="block text-xs text-slate-200" for="weatheringResidueSlider">
+          <span class="flex justify-between mb-1"><span>Persistent organic staining</span>
+            <output id="weatheringResidueVal" class="mono text-amber-200">1.10x</output></span>
+          <input id="weatheringResidueSlider" class="w-full" type="range" min="0" max="2" step="0.05" value="1.1"/>
+        </label>
+        <label class="block text-xs text-slate-200" for="weatheringReliefSlider">
+          <span class="flex justify-between mb-1"><span>Visible etched depth</span>
+            <output id="weatheringReliefVal" class="mono text-amber-200">0.70x</output></span>
+          <input id="weatheringReliefSlider" class="w-full" type="range" min="0" max="2" step="0.05" value="0.7"/>
+        </label>
+        <label class="block text-xs text-slate-200" for="weatheringPigmentSlider">
+          <span class="flex justify-between mb-1"><span>Old-rock stain saturation</span>
+            <output id="weatheringPigmentVal" class="mono text-amber-200">1.15x</output></span>
+          <input id="weatheringPigmentSlider" class="w-full" type="range" min="0" max="2" step="0.05" value="1.15"/>
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="weatheringSlowPreset" class="lichen-studio-button">Ancient Patina</button>
+          <button id="weatheringWildPreset" class="lichen-studio-button lichen-primary">Acid Mineral Bloom</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="weatheringCompareBtn" class="lichen-studio-button">Before / After · Original rock</button>
+          <button id="weatheringResetBtn" class="lichen-studio-button">Reset Geological Scars</button>
+        </div>
+        <p class="text-[10px] text-slate-500">Before/After only changes the picture. Reset Geological Scars asks for confirmation and permanently clears the old rock record in this session; normal reseeding does not.</p>
+        <div id="weatheringStats" role="status" class="mono text-[11px] text-amber-200">Chemical weathering initializing…</div>
+      </div>
       <div class="rounded-xl border border-slate-700 bg-[#0b1017] p-3 space-y-3">
         <label class="text-xs font-semibold text-sky-300" for="substrateViewSelect">Inspect Living Terrain</label>
         <select id="substrateViewSelect" class="lichen-select">
@@ -772,6 +821,10 @@
           <option value="2">Mineral seam map · pink = rich</option>
           <option value="3">Cleavage map · lime = fissure</option>
           <option value="4">Exposure map · orange = dry ridge</option>
+          <option value="5">Weathering · etched pits (lavender)</option>
+          <option value="6">Weathering · oxide bloom (copper)</option>
+          <option value="7">Weathering · organic stains (teal)</option>
+          <option value="8">Weathering · geological memory (magenta)</option>
         </select>
         <p class="text-[10px] text-slate-400">Diagnostic overlays work in the pinned preview and export. Set to Artwork to see the unchanged full-color rendering.</p>
         <div id="substrateStats" role="status" class="mono text-[11px] text-teal-200">Preparing rock microclimate…</div>
@@ -942,6 +995,7 @@
   <script src="./branch-skeletons.js"></script>
   <script src="./rhizine-network.js"></script>
   <script src="./substrate-ecology.js"></script>
+  <script src="./rock-weathering.js"></script>
   <script src="./geometry-layer.js"></script>
   <!-- APPLICATION SCRIPT: COUPLED PDE BIOLOGICAL ENGINE + WEBGL2 MICROFACET & RAYMARCH SHADER -->
   <script>
@@ -969,6 +1023,7 @@
       const colonyIdField = new Uint8Array(NUM_CELLS);  // distinct colony ID for suture line competition
       const rockField = new Float32Array(NUM_CELLS);    // static slate cleavage, cracks & iron veins
       let substrateEcology = null;                     // optional coupled rock microclimate engine
+      let rockWeathering = null;                        // long-lived etched substrate memory
 
       // Track each colony's spore attachment origin (umbilicus/prothallus center) for true radial lobe morphogenesis
       const colonyOriginX = new Float32Array(256);
@@ -1021,6 +1076,13 @@
         substrateCreviceBias: 1.15,// crack-guided local growth
         substrateMineralFlux: 0.90,// mineral-seam nutrient replenishment
         substrateView: 0,       // optional substrate diagnostic heatmap
+        weatheringIntensity: 1.0, // persistent chemical-weathering progression
+        weatheringErosion: 1.0,   // contact acid / micro-etching intensity
+        weatheringOxides: 0.90,   // mineral and iron-toned oxidation stains
+        weatheringResidue: 1.10,  // persistent organic residue intensity
+        weatheringRelief: 0.70,   // carved stone microrelief in macro shader
+        weatheringPigment: 1.15,  // visible stain color intensity
+        weatheringBefore: false,  // visual A/B only; geology keeps evolving
         rhizineDensity: 1.0,    // capped 3D rootlet count per branching holdfast
         rhizineGrip: 1.3,       // preference for low mineral + moist crevices
         rhizineLength: 1.0,     // how far thin rhizines extend along rock
@@ -1459,6 +1521,9 @@
               inoculateColony(rx / GRID_SIZE, ry / GRID_SIZE, randomSpecies, 2.5, true);
           }
         }
+        // The past survives the colony: lithic erosion and pigment records
+        // advance only on fixed biological ticks, independent of frame rate.
+        if (rockWeathering) rockWeathering.step();
       }
 
       // Pack Float32 biological fields into GPU textures
@@ -3123,6 +3188,18 @@
         } catch (err) {
           console.error('Optional rock microclimate unavailable:',err);
           substrateEcology = null;
+        }
+      }
+      if (window.LichenRockWeathering) {
+        try {
+          rockWeathering=window.LichenRockWeathering.create({
+            gridSize:GRID_SIZE,rockField,waterField,biomass,ageField,
+            necrosisField,crackField,speciesField,params
+          });
+          if(substrateEcology) substrateEcology.attachWeathering(rockWeathering);
+        } catch(error) {
+          console.warn('Rock history unavailable; original substrate preserved:',error);
+          rockWeathering=null;
         }
       }
       seedDefaultSlateEcosystem();
