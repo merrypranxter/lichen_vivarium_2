@@ -24,6 +24,10 @@
     const exposure=new Float32Array(count);
     const buffer=new Float32Array(count);
     let ticks=0;
+    let weathering=null;
+    function attachWeathering(engine) {
+      weathering=engine||null;
+    }
     function initialize(){
       // Valley depth and mineral/cleavage interfaces use the actual rock field;
       // stable sampling means the 3D rhizines follow these same fissures.
@@ -72,7 +76,8 @@
           const open=exposure[i];
           const target=clamp(
             ambient+.45*trap*(1-ambient)*retention
-                   -.31*open*ambient*drying);
+                   -.31*open*ambient*drying
+                   +(weathering?weathering.moisturePocket(i):0));
           const lap=waterField[i-1]+waterField[i+1]+
                     waterField[i-N]+waterField[i+N]-4*old;
           buffer[i]=clamp(old+.085*(target-old)+.035*lap);
@@ -106,14 +111,20 @@
       const mineralBonus=(mineral[i]-.45)*p.mineral*.58*
                       clamp(Number(params.substrateMineralFlux??.9),0,2);
       const heatPenalty=exposure[i]*(1-local)*p.water*.31;
-      return clamp(1+strength*(wetBonus+crackBonus+mineralBonus-
+      const terrain=clamp(1+strength*(wetBonus+crackBonus+mineralBonus-
                     heatPenalty-waterPenalty),.34,1.85);
+      return weathering
+        ? clamp(terrain*weathering.habitatFactor(i,species),.34,2.05)
+        : terrain;
     }
     function replenishment(i){
       const strength=clamp(Number(params.substrateInfluence??1),0,2);
       const leaching=clamp(Number(params.substrateMineralFlux??.9),0,2);
-      return clamp(1+strength*leaching*((mineral[i]-.43)*.50+
+      const terrain=clamp(1+strength*leaching*((mineral[i]-.43)*.50+
              crevice[i]*waterField[i]*.13),.55,1.65);
+      return weathering
+        ? clamp(terrain*weathering.nutrientFactor(i),.50,1.75)
+        : terrain;
     }
     function desiccation(i) {
       const strength=clamp(Number(params.substrateInfluence??1),0,2);
@@ -139,7 +150,7 @@
         meanMineral:min/count,meanExposure:expo/count};
     }
     return {initialize,step,growthFactor,replenishment,desiccation,
-      encodeRGBA,statistics,fields:{crevice,mineral,exposure},profiles};
+      attachWeathering,encodeRGBA,statistics,fields:{crevice,mineral,exposure},profiles};
   }
   window.LichenSubstrateEcology={create};
 })();
