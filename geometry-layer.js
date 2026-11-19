@@ -87,12 +87,15 @@ void main() {
     float livingStage = clamp(0.23*b.r + 0.77*smoothstep(0.008,0.27,b.g),0.0,1.0);
     float emergence = smoothstep(aGrowth.x,
                                  aGrowth.x + max(0.045,aGrowth.y), livingStage);
-    vec3 grown = mix(aStemRoot,aLocal,emergence);
+    // Developmental Unfolding at zero restores fully extended static
+    // geometry, matching the rest of the Motion tab.
+    float tipExtension = mix(1.0, emergence, uMeshMorph);
+    vec3 grown = mix(aStemRoot,aLocal,tipExtension);
     uv += grown.xy;
     baseZ = grown.z * 0.115 * uMeshDepth * max(0.0,uMeshBranchHeight);
     alpha = smoothstep(0.065,0.23,b.r)
            * smoothstep(0.003,0.06,b.g) * (1.0-b.a)
-           * smoothstep(0.01,0.24,emergence);
+           * smoothstep(0.01,0.24,tipExtension);
     alpha *= 1.0-step(0.5,abs(aux.r*4.0-2.0));
   }
 
