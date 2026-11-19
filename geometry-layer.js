@@ -25,6 +25,8 @@ layout(location=2) in vec2 aMeta;
 layout(location=3) in vec2 aBiologySample; // biology can sit near the geometric Worley center
 layout(location=4) in vec3 aStemRoot;  // base of this specific tube segment
 layout(location=5) in vec2 aGrowth;    // developmental birth threshold, emergence width
+layout(location=6) in vec3 aCortexNormal; // radial surface normal in 3D anatomy
+layout(location=7) in vec2 aCortexUV;     // around-tube / along-branch coordinates
 uniform sampler2D uMeshBio;
 uniform sampler2D uMeshAux;
 uniform float uMeshZoom;
@@ -44,6 +46,9 @@ out float vMeshAlpha;
 out float vMeshType;
 out float vMeshSeed;
 out float vMeshHeight;
+out vec3 vCortexNormal;
+out vec2 vCortexUV;
+out float vCortexAge;
 
 void main() {
   float kind = aMeta.x; // 0: hollow cup, 1: foliose ribbon, 2: fruticose branch.
@@ -117,6 +122,9 @@ void main() {
   vMeshAlpha=alpha;
   vMeshSeed=aMeta.y;
   vMeshType=kind;
+  vCortexNormal=aCortexNormal;
+  vCortexUV=aCortexUV;
+  vCortexAge=b.g;
 }
 `;
     const frag = `#version 300 es
@@ -127,7 +135,15 @@ in float vMeshAlpha;
 in float vMeshType;
 in float vMeshSeed;
 in float vMeshHeight;
+in vec3 vCortexNormal;
+in vec2 vCortexUV;
+in float vCortexAge;
 uniform sampler2D uMeshRamp;
+uniform float uMeshCortexDetail;
+uniform float uMeshPowder;
+uniform float uMeshFissures;
+uniform float uMeshWet;
+uniform int uMeshBranchPattern;
 uniform int uMeshPaletteMode;
 uniform vec3 uMeshLight;
 uniform bool uMeshShadow;
@@ -143,9 +159,10 @@ void main() {
   }
   vec3 dpdx=dFdx(vMeshWorld);
   vec3 dpdy=dFdy(vMeshWorld);
-  vec3 n=normalize(cross(dpdx,dpdy));
+  vec3 n=vMeshType>1.5 ? normalize(vCortexNormal)
+                        : normalize(cross(dpdx,dpdy));
   if (!gl_FrontFacing) n=-n;
-  n.z=abs(n.z);
+  if (vMeshType<1.5) n.z=abs(n.z);
   n=normalize(n);
   vec3 light=normalize(uMeshLight);
   float diffuse=max(0.0,dot(n,light));
@@ -168,9 +185,67 @@ void main() {
   } else {
     base=mix(vec3(0.98,0.16,0.34),vec3(1.0,0.78,0.15),seed);
   }
-  // Micrograins and rim reflectance anchor these to the original lichen material.
+  // A genuine stem-wrapped cortex: anisotropic ridges run along the tube axis,
+  // transverse fungal wrinkles accumulate with age, and older dry cortex opens
+  // fine irregular fissures. All spatial phases are fixed to the tube surface;
+  // there is no unmotivated time animation / pixel-space texture swimming.
   float granular=noise21(floor(vMeshUV*1800.0));
-  base*=mix(0.89,1.07,granular);
+  float cortexBump=0.0;
+  if (vMeshType>1.5){
+    float around=vCortexUV.x*6.28318530718;
+    float along=vCortexUV.y;
+    float mature=smoothstep(0.035,0.24,vCortexAge);
+    float dry=clamp(1.0-uMeshWet,0.0,1.0);
+    float rough=clamp(uMeshCortexDetail,0.0,2.0);
+    // Parallel cortical striae whose pitch bends slightly with hyphal growth.
+    float axial=sin(around*(uMeshBranchPattern==1?9.0:16.0)
+                     +0.30*sin(along*5.5+vMeshSeed*8.0)+along*0.6);
+    float ridges=pow(0.5+0.5*axial,3.0);
+    float wrinkle=0.5+0.5*sin(along*32.0
+                              +sin(around*8.0+vMeshSeed*11.0)*1.45);
+    float grain=noise21(floor(vec2(vCortexUV.x*260.0,along*135.0)
+                              +vec2(vMeshSeed*17.0,vMeshSeed*31.0)));
+    cortexBump=(ridges*0.60+wrinkle*mature*0.28+grain*0.12)*rough;
+    base*=mix(1.0,0.83+0.27*cortexBump,clamp(rough*.78,0.0,1.0));
+
+    // Tip and mature-branch soralia: powdery fungal/photobiont granules, not
+    // a uniform white coat. Ramalina also develops pale pseudocyphella-like
+    // patches along its axial cortex.
+    float patch=noise21(floor(vec2(vCortexUV.x*8.0,along*9.0)
+                              +vec2(vMeshSeed*47.0,vMeshSeed*13.0)));
+    float powderGrain=noise21(floor(vec2(vCortexUV.x*320.0,along*240.0)
+                                    +vec2(21.3,vMeshSeed*71.0)));
+    float patchThreshold=uMeshBranchPattern==1?0.66:0.78;
+    float soralia=smoothstep(patchThreshold,0.98,patch)
+                 *smoothstep(0.43,0.93,powderGrain)
+                 *mature*clamp(uMeshPowder,0.0,2.0);
+    vec3 powderTone=mix(base*1.24,vec3(0.91,0.92,0.84),
+                       uMeshPaletteMode==0?0.55:0.18);
+    base=mix(base,powderTone,clamp(soralia*.82,0.0,.85));
+    
+    // Longitudinal fissures become visible after desiccation/age.
+    // The line's curvature is locked to its own stem coordinates.
+    float fissureLine=sin(around*11.0+0.43*sin(along*8.0+vMeshSeed*9.0));
+    float fissure=smoothstep(0.962,0.995,fissureLine)
+                  *mature*(0.30+0.70*dry)
+                  *clamp(uMeshFissures,0.0,2.0);
+    base*=1.0-clamp(fissure*.73,0.0,.83);
+
+    // Tiny lichen fibrils are independent real cylindrical geometry. Their
+    // lighter, fibrous tip tissue inherits the palette instead of turning gray.
+    if(vMeshType>2.5)base=mix(base,base*1.42+vec3(.07,.055,.045),0.62);
+
+    // Cheap analytic normal detail instead of expensive finite differences
+    // or a new fractal noise function in the mobile fragment shader.
+    float normalRipple=(axial*.55+sin(along*32.0)*.45)
+                       *clamp(rough,0.0,2.0)*.12;
+    n=normalize(n+vec3(normalRipple*cos(around),
+                            normalRipple*sin(around),0.0));
+    diffuse=max(0.0,dot(n,light));
+    diffuseBack=max(0.0,dot(n,-light));
+    granular=grain;
+  }
+  if(vMeshType<1.5)base*=mix(0.89,1.07,granular);
   float sheen=pow(max(0.0,dot(reflect(-light,n),vec3(0.0,0.0,1.0))),32.0);
   vec3 lit=base*(0.24+diffuse*0.77+diffuseBack*0.12)+vec3(sheen*0.16);
   // A gentle spectral edge sheen remains subordinate to the detailed base shader.
@@ -210,7 +285,9 @@ void main() {
     const loc={};
     for(const name of ['uMeshBio','uMeshAux','uMeshRamp','uMeshZoom','uMeshPan',
       'uMeshWet','uMeshDepth','uMeshTilt','uMeshCupRise','uMeshLobeCurl',
-      'uMeshBranchHeight','uMeshMorph','uMeshLight','uMeshShadow','uMeshPaletteMode']){
+      'uMeshBranchHeight','uMeshMorph','uMeshLight','uMeshShadow',
+      'uMeshPaletteMode','uMeshCortexDetail','uMeshPowder','uMeshFissures',
+      'uMeshBranchPattern']){
       loc[name]=gl.getUniformLocation(meshProgram,name);
     }
     const vao=gl.createVertexArray();
@@ -218,9 +295,10 @@ void main() {
     if(!vao || !buffer)throw Error('3D mesh buffer allocation failed');
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
-    // [anchor.xy, local.xyz, type, colorSeed, sample.xy,
-    //  tube-start.xyz, birth-threshold, duration]
-    const stride=14*4;
+    // [anchor.xy, local.xyz, type, colorSeed, biologySample.xy,
+    //  tube-start.xyz, birth-threshold, growthDuration,
+    //  3D cortex normal.xyz, unwrapped stem UV.xy]
+    const stride=19*4;
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0,2,gl.FLOAT,false,stride,0);
     gl.enableVertexAttribArray(1);
@@ -233,13 +311,17 @@ void main() {
     gl.vertexAttribPointer(4,3,gl.FLOAT,false,stride,9*4);
     gl.enableVertexAttribArray(5);
     gl.vertexAttribPointer(5,2,gl.FLOAT,false,stride,12*4);
+    gl.enableVertexAttribArray(6);
+    gl.vertexAttribPointer(6,3,gl.FLOAT,false,stride,14*4);
+    gl.enableVertexAttribArray(7);
+    gl.vertexAttribPointer(7,2,gl.FLOAT,false,stride,17*4);
     gl.bindVertexArray(null);
 
     const cupAnchors=new Map();
     const folioseAnchors=new Map();
     const branchAnchors=new Map();
     let vertexCount=0, lastScanMs=-Infinity, lastBuildKey='', currentYear=0;
-    let stats={cups:0,lobes:0,branchStems:0,branchSegments:0,triangles:0,quality:'off'};
+    let stats={cups:0,lobes:0,branchStems:0,branchSegments:0,fibrils:0,triangles:0,quality:'off'};
     function getLimits(quality) {
       return quality==='rich'
         ? {cupLimit:44,lobeLimit:16,cupSegments:18,lobeSteps:14,branchLimit:4}
@@ -248,7 +330,7 @@ void main() {
     function add(arr,anchor,x,y,z,type,seed){
       arr.push(anchor[0],anchor[1],x,y,z,type,seed,
                anchor[2] ?? anchor[0],anchor[3] ?? anchor[1],
-               0,0,0,0,0);
+               0,0,0,0,0, 0,0,1, 0,0);
     }
     function cupGeometry(arr,anchor,seed,segments){
       // Each annular ring is a real 3D surface. The last two rings fold inward,
@@ -382,7 +464,7 @@ void main() {
     function rebuild(quality){
       const limit=getLimits(quality);
       const packed=[];
-      let cups=0,leaves=0,branchStems=0,branchSegments=0;
+      let cups=0,leaves=0,branchStems=0,branchSegments=0,fibrils=0;
       for(const o of cupAnchors.values()){
         if(cups>=limit.cupLimit)break;
         cupGeometry(packed,o.anchor,o.seed,limit.cupSegments);
@@ -406,24 +488,27 @@ void main() {
           if(branchStems>=limit.branchLimit)break;
           const result=window.LichenBranchSkeleton.grow(packed,o.anchor,o.seed,{
             mode:params.branchPattern||'cladonia',
-            quality,density:params.branchDensity ?? 1
+            quality,density:params.branchDensity ?? 1,
+            fibrilDensity:params.branchFibrils ?? 0.8
           });
           if(result.segments>0){
             branchStems++;
             branchSegments+=result.segments;
+            fibrils+=result.fibrils ?? 0;
           }
         }
       }
-      vertexCount=packed.length/14;
+      vertexCount=packed.length/19;
       gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
       gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(packed),gl.DYNAMIC_DRAW);
-      stats={cups,lobes:leaves,branchStems,branchSegments,
+      stats={cups,lobes:leaves,branchStems,branchSegments,fibrils,
              triangles:vertexCount/3,quality};
     }
     function scan(nowMs,quality){
       if (quality==='off')return;
       const buildKey=quality+'|'+(params.branchPattern||'cladonia')
-        +'|'+(params.branchDensity ?? 1);
+        +'|'+(params.branchDensity ?? 1)
+        +'|'+(params.branchFibrils ?? 0.8);
       if(buildKey===lastBuildKey && nowMs>=lastScanMs && nowMs-lastScanMs<1700)return;
       lastScanMs=nowMs;
       const year=getYears();
@@ -462,6 +547,11 @@ void main() {
         gl.uniform1f(loc.uMeshCupRise,params.cupRise ?? 1);
         gl.uniform1f(loc.uMeshLobeCurl,params.lobeUnfurl ?? 1);
         gl.uniform1f(loc.uMeshBranchHeight,params.branchHeight ?? 1);
+        gl.uniform1f(loc.uMeshCortexDetail,params.branchCortexDetail ?? 1.15);
+        gl.uniform1f(loc.uMeshPowder,params.branchPowder ?? 0.85);
+        gl.uniform1f(loc.uMeshFissures,params.branchFissures ?? 0.65);
+        gl.uniform1i(loc.uMeshBranchPattern,
+          params.branchPattern==='ramalina'?1:0);
         gl.uniform1f(loc.uMeshMorph,params.morphogenesis ?? 1);
         gl.uniform3f(loc.uMeshLight,bindings.light[0],bindings.light[1],bindings.light[2]);
         gl.uniform1i(loc.uMeshPaletteMode,params.paletteMode);
