@@ -167,11 +167,12 @@
     </div>
 
     <!-- Navigation Tabs -->
-    <div id="tabBar" role="tablist" aria-label="Lichen studio controls" class="grid grid-cols-6 border-b border-slate-800 bg-[#090b0f] text-xs font-medium">
+    <div id="tabBar" role="tablist" aria-label="Lichen studio controls" class="grid grid-cols-7 border-b border-slate-800 bg-[#090b0f] text-xs font-medium">
       <button data-tab="tab-engines" class="tab-btn py-2.5 border-b-2 border-sky-400 text-sky-400 bg-slate-900/50">Species</button>
       <button data-tab="tab-psychedelic" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Color Lab</button>
       <button data-tab="tab-motion" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Motion</button>
       <button data-tab="tab-lifecycle" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Life/Death</button>
+      <button data-tab="tab-substrate" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Substrate</button>
       <button data-tab="tab-optics" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Optics/3D</button>
       <button data-tab="tab-export" class="tab-btn py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">Export</button>
     </div>
@@ -722,6 +723,62 @@
       </div>
     </div>
 
+    <!-- PHASE 9: COUPLED SUBSTRATE MICROCLIMATE AND HABITAT VISUALIZATION -->
+    <div id="tab-substrate" class="tab-panel hidden p-4 space-y-4">
+      <h2 class="text-sm font-bold text-teal-200">Substrate Lab · The Rock Is Alive</h2>
+      <p class="text-[11px] text-slate-400 leading-relaxed">
+        Lichens now respond to the actual rock cleavage, local water pockets,
+        exposed ridges and mineral-bearing edges. Those fields change growth,
+        aging stress and nutrient recovery over biological time. The original
+        3D rhizines use these same rock and moisture arrays.
+      </p>
+      <div class="rounded-xl border border-teal-800/60 bg-[#092020]/70 p-3 space-y-4">
+        <label class="block text-xs text-slate-200" for="substrateInfluenceSlider">
+          <span class="flex justify-between mb-1"><strong>Terrain Influence on Growth</strong>
+            <output id="substrateInfluenceVal" class="mono text-teal-300">1.00x</output></span>
+          <input id="substrateInfluenceSlider" class="w-full" type="range" min="0" max="2" step="0.05" value="1"/>
+          <span class="block text-[10px] text-slate-400">0 = original growth behavior; 2 = stronger habitat-dependent expansion.</span>
+        </label>
+        <label class="block text-xs text-slate-200" for="substrateRetentionSlider">
+          <span class="flex justify-between mb-1"><span>Moisture Pockets / Crack Retention</span>
+            <output id="substrateRetentionVal" class="mono text-teal-300">1.10x</output></span>
+          <input id="substrateRetentionSlider" class="w-full" type="range" min="0" max="2" step="0.05" value="1.1"/>
+        </label>
+        <label class="block text-xs text-slate-200" for="substrateExposureSlider">
+          <span class="flex justify-between mb-1"><span>Exposed Rock Desiccation</span>
+            <output id="substrateExposureVal" class="mono text-teal-300">0.75x</output></span>
+          <input id="substrateExposureSlider" class="w-full" type="range" min="0" max="2" step="0.05" value="0.75"/>
+        </label>
+        <label class="block text-xs text-slate-200" for="substrateCreviceSlider">
+          <span class="flex justify-between mb-1"><span>Fissure / Crevice Affinity</span>
+            <output id="substrateCreviceVal" class="mono text-teal-300">1.15x</output></span>
+          <input id="substrateCreviceSlider" class="w-full" type="range" min="0" max="2" step="0.05" value="1.15"/>
+        </label>
+        <label class="block text-xs text-slate-200" for="substrateMineralSlider">
+          <span class="flex justify-between mb-1"><span>Mineral Seams &amp; Nutrient Leaching</span>
+            <output id="substrateMineralVal" class="mono text-teal-300">0.90x</output></span>
+          <input id="substrateMineralSlider" class="w-full" type="range" min="0" max="2" step="0.05" value="0.9"/>
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="substrateWetPreset" class="lichen-studio-button lichen-primary">💧 Wet Crevices</button>
+          <button id="substrateHarshPreset" class="lichen-studio-button">☀️ Harsh Slate</button>
+        </div>
+      </div>
+      <div class="rounded-xl border border-slate-700 bg-[#0b1017] p-3 space-y-3">
+        <label class="text-xs font-semibold text-sky-300" for="substrateViewSelect">Inspect Living Terrain</label>
+        <select id="substrateViewSelect" class="lichen-select">
+          <option value="0">Artwork · normal view</option>
+          <option value="1">Moisture map · cyan = wet</option>
+          <option value="2">Mineral seam map · pink = rich</option>
+          <option value="3">Cleavage map · lime = fissure</option>
+          <option value="4">Exposure map · orange = dry ridge</option>
+        </select>
+        <p class="text-[10px] text-slate-400">Diagnostic overlays work in the pinned preview and export. Set to Artwork to see the unchanged full-color rendering.</p>
+        <div id="substrateStats" role="status" class="mono text-[11px] text-teal-200">Preparing rock microclimate…</div>
+      </div>
+      <p class="text-[10px] text-slate-500">This is a stylized ecological model, not a prediction of growth rates for a particular real lichen species. No new online services required.</p>
+    </div>
+
     <!-- TAB 4: 3D RELIEF, RAKING LIGHT & MICROSCOPY OPTICS -->
     <div id="tab-optics" class="tab-panel hidden p-4 space-y-4">
       <div class="space-y-3">
@@ -884,6 +941,7 @@
   <script src="./studio-runtime.js"></script>
   <script src="./branch-skeletons.js"></script>
   <script src="./rhizine-network.js"></script>
+  <script src="./substrate-ecology.js"></script>
   <script src="./geometry-layer.js"></script>
   <!-- APPLICATION SCRIPT: COUPLED PDE BIOLOGICAL ENGINE + WEBGL2 MICROFACET & RAYMARCH SHADER -->
   <script>
@@ -910,6 +968,7 @@
       const speciesField = new Uint8Array(NUM_CELLS);   // 0..4 species engine ID
       const colonyIdField = new Uint8Array(NUM_CELLS);  // distinct colony ID for suture line competition
       const rockField = new Float32Array(NUM_CELLS);    // static slate cleavage, cracks & iron veins
+      let substrateEcology = null;                     // optional coupled rock microclimate engine
 
       // Track each colony's spore attachment origin (umbilicus/prothallus center) for true radial lobe morphogenesis
       const colonyOriginX = new Float32Array(256);
@@ -956,6 +1015,12 @@
         basalFusion: 0.90,       // living thallus shell grows around the branch holdfast
         basalSpread: 1.0,       // radius of attachment skirt in rock/canvas coordinates
         basalVolume: 1.0,       // cortex thickness and physical substrate contact
+        substrateInfluence: 1.0, // ecological terrain sensitivity, 0 preserves legacy multiplier
+        substrateRetention: 1.1, // depressions hold water between rain events
+        substrateExposure: 0.75,// drying on open ridges
+        substrateCreviceBias: 1.15,// crack-guided local growth
+        substrateMineralFlux: 0.90,// mineral-seam nutrient replenishment
+        substrateView: 0,       // optional substrate diagnostic heatmap
         rhizineDensity: 1.0,    // capped 3D rootlet count per branching holdfast
         rhizineGrip: 1.3,       // preference for low mineral + moist crevices
         rhizineLength: 1.0,     // how far thin rhizines extend along rock
@@ -1167,6 +1232,7 @@
         params.effectiveWetness +=
           (params.ambientHydration - params.effectiveWetness) * hydrationLag;
 
+        if (substrateEcology) substrateEcology.step();
         // Non-monotonic photosynthesis water response curve [Paper Section 5.1]:
         // Too dry = dormant; optimal hydration (~0.65-0.82) = max growth; waterlogged suprasaturation = slight depression
         const w = params.effectiveWetness;
@@ -1195,7 +1261,8 @@
 
             // Nutrient / Atmospheric CO2 Diffusion + slow mineral replenishment
             const lapN = (nutrientField[iN] + nutrientField[iS] + nutrientField[iW] + nutrientField[iE] - 4.0 * n);
-            let newN = n + 0.16 * lapN + 0.0018 * (1.0 - n);
+            let newN = n + 0.16 * lapN + 0.0018 * (1.0 - n)
+              * (substrateEcology ? substrateEcology.replenishment(i) : 1.0);
 
             // Find strongest neighboring colony for front advancement
             let maxNb = 0.0;
@@ -1251,7 +1318,10 @@
 
                 // Coffee-drop perimeter CO2 flux + rock micro-crevice channeling
                 const rockAffinity = 0.7 + 0.3 * (1.0 - rockField[i]);
-                const advanceProb = traits.growthSpeed * hydrationActivity * newN * lobeFactor * rockAffinity;
+                const terrainFactor = substrateEcology
+                  ? substrateEcology.growthFactor(i, frontSp) : 1.0;
+                const advanceProb = traits.growthSpeed * hydrationActivity
+                  * newN * lobeFactor * rockAffinity * terrainFactor;
 
                 // Smooth continuous advance, NOT a random hard jump from 0 to 0.14.
                 // A colony's polarized, moisture-driven growth front accumulates tiny
@@ -1292,7 +1362,11 @@
             // 1. Biomass thickening (slower in interior due to CO2 coffee-drop depletion and colony sutures)
             const perimeterBoost = Math.max(0.15, 1.0 - avgNb * 0.85);
             const suturePenalty = diffColonyContact > 0.5 ? 0.25 : 1.0;
-            const growthDelta = traits.growthSpeed * 0.45 * hydrationActivity * newN * (0.35 + 0.65 * perimeterBoost) * suturePenalty * (1.0 - nec);
+            const habitatFactor = substrateEcology
+              ? substrateEcology.growthFactor(i, sp) : 1.0;
+            const growthDelta = traits.growthSpeed * 0.45 * hydrationActivity
+              * newN * (0.35 + 0.65 * perimeterBoost)
+              * suturePenalty * (1.0 - nec) * habitatFactor;
 
             let newB = Math.min(1.0, b + growthDelta * (1.0 - b * 0.82));
 
@@ -1304,7 +1378,9 @@
             ageField[i] = newAge;
 
             // 3. Mechanical & Desiccation Strain -> Permanent Areole Fracture [Engine 1 & 2]
-            const drynessStress = (1.0 - w) * 0.015;
+            const localWater = substrateEcology ? waterField[i] : w;
+            const drynessStress = (1.0 - localWater) * 0.015
+              * (substrateEcology ? substrateEcology.desiccation(i) : 1.0);
             const thicknessStress = newB * 0.012 * traits.crackSusceptibility * params.fractureRate;
             const sutureStress = diffColonyContact * 0.04;
             stressField[i] += drynessStress + thicknessStress + sutureStress;
@@ -2978,6 +3054,17 @@
       // 6. INITIALIZATION & MAIN ANIMATION LOOP
       // ============================================================================
       initRockSubstrate();
+      if (window.LichenSubstrateEcology) {
+        try {
+          substrateEcology = window.LichenSubstrateEcology.create({
+            gridSize: GRID_SIZE, rockField, waterField, params
+          });
+          substrateEcology.initialize();
+        } catch (err) {
+          console.error('Optional rock microclimate unavailable:',err);
+          substrateEcology = null;
+        }
+      }
       seedDefaultSlateEcosystem();
       // Pre-grow to Year ~18 on startup so the viewer immediately sees living colonies
       // with young margins, raised lobes, and early areoles ready to keep growing
