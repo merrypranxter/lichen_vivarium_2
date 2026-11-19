@@ -37,6 +37,9 @@ uniform float uMeshTilt;
 uniform float uMeshCupRise;
 uniform float uMeshLobeCurl;
 uniform float uMeshBranchHeight;
+uniform float uMeshBasalSpread;
+uniform float uMeshBasalFusion;
+uniform float uMeshBasalVolume;
 uniform float uMeshMorph;
 uniform vec3 uMeshLight;
 uniform bool uMeshShadow;
@@ -85,7 +88,7 @@ void main() {
     alpha = smoothstep(0.045,0.24,b.r) * smoothstep(0.002,0.07,b.g)
             * (1.0-b.a);
     alpha *= 1.0-step(0.5,abs(aux.r*4.0-1.0));
-  } else {
+  } else if(kind < 3.5) {
     // Actual tubular branch skeleton. Geometry is born at the segment's
     // attachment node, then extrudes and thickens as that tissue matures.
     // Zero decorative time wobble: biomass and tissue age drive every tip.
@@ -102,6 +105,26 @@ void main() {
            * smoothstep(0.003,0.06,b.g) * (1.0-b.a)
            * smoothstep(0.01,0.24,tipExtension);
     alpha *= 1.0-step(0.5,abs(aux.r*4.0-2.0));
+  } else {
+    // A finite-thickness basal thallus physically supports the branching axes.
+    // Radial upper skin, tapered margin, skirt and underside share one mesh.
+    // Alive/dead tissue is sampled per-vertex from the original 256² biology.
+    vec2 offset=aLocal.xy * uMeshBasalSpread;
+    uv += offset;
+    b=texture(uMeshBio,clamp(uv,0.002,0.998));
+    aux=texture(uMeshAux,clamp(uv,0.002,0.998));
+    float radial=length(offset)/max(0.0001,0.030*uMeshBasalSpread);
+    float life=smoothstep(0.035,0.24,b.r)
+              *smoothstep(0.001,0.045,b.g)
+              *(1.0-smoothstep(0.38,0.95,b.a));
+    float wetShape=mix(0.79,1.17,uMeshWet);
+    float centerLift=0.85+0.15*smoothstep(0.0,0.2,b.r);
+    baseZ=(0.0012+max(-0.25,aLocal.z)*0.0095*centerLift
+                 *wetShape*max(0.0,uMeshBasalVolume))*uMeshDepth;
+    // The outer biological front feather-blends toward the substrate.
+    float feather=1.0-smoothstep(0.78,1.10,radial);
+    alpha=life * feather * clamp(uMeshBasalFusion,0.0,1.0);
+    alpha*=1.0-step(0.5,abs(aux.r*4.0-2.0));
   }
 
   float h = max(0.0,baseZ);
@@ -162,7 +185,7 @@ void main() {
   vec3 n=vMeshType>1.5 ? normalize(vCortexNormal)
                         : normalize(cross(dpdx,dpdy));
   if (!gl_FrontFacing) n=-n;
-  if (vMeshType<1.5) n.z=abs(n.z);
+  if (vMeshType<1.5 || vMeshType>3.5) n.z=abs(n.z);
   n=normalize(n);
   vec3 light=normalize(uMeshLight);
   float diffuse=max(0.0,dot(n,light));
@@ -191,7 +214,7 @@ void main() {
   // there is no unmotivated time animation / pixel-space texture swimming.
   float granular=noise21(floor(vMeshUV*1800.0));
   float cortexBump=0.0;
-  if (vMeshType>1.5){
+  if (vMeshType>1.5 && vMeshType<3.5){
     float around=vCortexUV.x*6.28318530718;
     float along=vCortexUV.y;
     float mature=smoothstep(0.035,0.24,vCortexAge);
@@ -245,6 +268,33 @@ void main() {
     diffuseBack=max(0.0,dot(n,-light));
     granular=grain;
   }
+  if(vMeshType>3.5){
+    // Basal prothallus/root rind: radial fungal hyphae, mineral-rich seams,
+    // and small cortex nodules. These fixed radial coordinates attach the
+    // visual fibers to the same root disk as the real rising tube branches.
+    float radial=clamp(vCortexUV.y,0.0,1.0);
+    float angle=vCortexUV.x*6.28318530718;
+    float hyphae=0.5+0.5*sin(angle*24.0
+                      +sin(radial*18.0+vMeshSeed*11.0)*0.9);
+    float mineral=noise21(floor(vec2(vCortexUV.x*142.0,
+                                     radial*168.0)+vMeshSeed*31.0));
+    float rootAge=smoothstep(0.025,0.22,vCortexAge);
+    float rootWet=clamp(uMeshWet,0.0,1.0);
+    float rim=smoothstep(0.58,0.92,radial);
+    // A dark prothallus-like attachment rim around living cortex.
+    base=mix(base,base*0.43,clamp(rim*rootAge*.55,0.0,.72));
+    float fiberLight=hyphae*(0.08+0.16*rootWet)
+                     *(1.0-rim*.5);
+    base*=0.89+fiberLight;
+    base*=mix(.81,1.04,mineral*.7+.3);
+    float nodules=smoothstep(.83,.97,mineral)
+                 *rootAge*(1.0-rim)*0.18;
+    base+=base*nodules;
+    float wrinkling=hyphae*.08*rootAge;
+    n=normalize(n+vec3(cos(angle)*wrinkling,sin(angle)*wrinkling,0.0));
+    diffuse=max(0.0,dot(n,light));
+    diffuseBack=max(0.0,dot(n,-light));
+  }
   if(vMeshType<1.5)base*=mix(0.89,1.07,granular);
   float sheen=pow(max(0.0,dot(reflect(-light,n),vec3(0.0,0.0,1.0))),32.0);
   vec3 lit=base*(0.24+diffuse*0.77+diffuseBack*0.12)+vec3(sheen*0.16);
@@ -253,7 +303,8 @@ void main() {
   lit+=base*fringe*0.12;
   lit=lit/(lit+vec3(0.30));
   // Branch tubes have an opaque cortex while foliose tips are translucent.
-  float surfaceAlpha=vMeshType<0.5?0.95:(vMeshType<1.5?0.74:0.96);
+  float surfaceAlpha=vMeshType<0.5?0.95:
+                       (vMeshType<1.5?0.74:(vMeshType>3.5?0.92:0.96));
   fragColor=vec4(clamp(lit,0.0,1.0),vMeshAlpha*surfaceAlpha);
 }
 `;
@@ -285,7 +336,8 @@ void main() {
     const loc={};
     for(const name of ['uMeshBio','uMeshAux','uMeshRamp','uMeshZoom','uMeshPan',
       'uMeshWet','uMeshDepth','uMeshTilt','uMeshCupRise','uMeshLobeCurl',
-      'uMeshBranchHeight','uMeshMorph','uMeshLight','uMeshShadow',
+      'uMeshBranchHeight','uMeshBasalSpread','uMeshBasalFusion',
+      'uMeshBasalVolume','uMeshMorph','uMeshLight','uMeshShadow',
       'uMeshPaletteMode','uMeshCortexDetail','uMeshPowder','uMeshFissures',
       'uMeshBranchPattern']){
       loc[name]=gl.getUniformLocation(meshProgram,name);
@@ -321,7 +373,8 @@ void main() {
     const folioseAnchors=new Map();
     const branchAnchors=new Map();
     let vertexCount=0, lastScanMs=-Infinity, lastBuildKey='', currentYear=0;
-    let stats={cups:0,lobes:0,branchStems:0,branchSegments:0,fibrils:0,triangles:0,quality:'off'};
+    let stats={cups:0,lobes:0,branchStems:0,branchSegments:0,
+      basalThalli:0,fibrils:0,triangles:0,quality:'off'};
     function getLimits(quality) {
       return quality==='rich'
         ? {cupLimit:44,lobeLimit:16,cupSegments:18,lobeSteps:14,branchLimit:4}
@@ -332,6 +385,53 @@ void main() {
                anchor[2] ?? anchor[0],anchor[3] ?? anchor[1],
                0,0,0,0,0, 0,0,1, 0,0);
     }
+    function basalThallusGeometry(out,anchor,seed,segments){
+      // Thin *volumetric shell* with an irregular dorsal cortex, feathered
+      // perimeter, a tucked-under skirt, and a substrate-facing underside.
+      // All coordinates remain in the same normalized UV/world system used
+      // by the source shader. The lowest ring returns toward z=0.
+      const steps=[
+        [0,0.64], [0.16,0.93], [0.39,0.83],
+        [0.67,0.50], [0.88,0.24], [1.0,0.035],
+        [1.015,-0.015], [0.83,-0.08], [0.30,-0.07]
+      ];
+      const radius=0.030;
+      const phase=seed*Math.PI*2;
+      function surfaceAt(ring,j){
+        const t=j/segments;
+        const a=t*Math.PI*2+phase;
+        const r=ring[0];
+        const irregular=1.0+0.085*Math.sin(5*a+seed*13)
+                         +0.043*Math.sin(11*a-seed*19);
+        const x=Math.cos(a)*r*radius*irregular;
+        const y=Math.sin(a)*r*radius*irregular;
+        const z=ring[1]+0.055*r*Math.sin(7*a+seed*23);
+        const slope=r<.9 ? -0.11:0.06;
+        const normalLength=Math.hypot(Math.cos(a)*slope,
+                                      Math.sin(a)*slope,1);
+        const normal=[Math.cos(a)*slope/normalLength,
+                      Math.sin(a)*slope/normalLength,1/normalLength];
+        return {x,y,z,normal,uv:[t,r]};
+      }
+      function append(v){
+        out.push(anchor[0],anchor[1],v.x,v.y,v.z,4,seed,
+          anchor[0]+v.x,anchor[1]+v.y,
+          0,0,0,0,0,
+          v.normal[0],v.normal[1],v.normal[2],
+          v.uv[0],v.uv[1]);
+      }
+      for(let row=0;row<steps.length-1;row++){
+        for(let j=0;j<segments;j++){
+          const a=surfaceAt(steps[row],j);
+          const b=surfaceAt(steps[row],j+1);
+          const c=surfaceAt(steps[row+1],j);
+          const d=surfaceAt(steps[row+1],j+1);
+          for(const p of [a,c,b,b,c,d])append(p);
+        }
+      }
+      return 2*segments*(steps.length-1);
+    }
+
     function cupGeometry(arr,anchor,seed,segments){
       // Each annular ring is a real 3D surface. The last two rings fold inward,
       // forming the hollow inside of the scyphus rather than a solid disk.
@@ -464,7 +564,7 @@ void main() {
     function rebuild(quality){
       const limit=getLimits(quality);
       const packed=[];
-      let cups=0,leaves=0,branchStems=0,branchSegments=0,fibrils=0;
+      let cups=0,leaves=0,branchStems=0,branchSegments=0,basalThalli=0,fibrils=0;
       for(const o of cupAnchors.values()){
         if(cups>=limit.cupLimit)break;
         cupGeometry(packed,o.anchor,o.seed,limit.cupSegments);
@@ -478,6 +578,17 @@ void main() {
         }
         // Prevent an uncontrolled number of independently painted foliose colonies.
         if(leaves>=limit.lobeLimit*3)break;
+      }
+      // The holdfast shares the exact same colony origin as its branching
+      // skeleton, so stems rise through a living thallus rather than merely
+      // being painted onto the rock. Biological state remains authoritative.
+      if((params.basalFusion ?? 0.90)>0.001){
+        for(const o of branchAnchors.values()){
+          if(basalThalli>=limit.branchLimit)break;
+          basalThallusGeometry(packed,o.anchor,o.seed,
+            quality==='rich'?18:12);
+          basalThalli++;
+        }
       }
       // Fruticose anatomy is built once from a stable colony identity.
       // Its triangle vertices grow entirely in the GPU as biological
@@ -501,14 +612,15 @@ void main() {
       vertexCount=packed.length/19;
       gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
       gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(packed),gl.DYNAMIC_DRAW);
-      stats={cups,lobes:leaves,branchStems,branchSegments,fibrils,
+      stats={cups,lobes:leaves,branchStems,branchSegments,basalThalli,fibrils,
              triangles:vertexCount/3,quality};
     }
     function scan(nowMs,quality){
       if (quality==='off')return;
       const buildKey=quality+'|'+(params.branchPattern||'cladonia')
         +'|'+(params.branchDensity ?? 1)
-        +'|'+(params.branchFibrils ?? 0.8);
+        +'|'+(params.branchFibrils ?? 0.8)
+        +'|'+((params.basalFusion ?? .9)>0.001?1:0);
       if(buildKey===lastBuildKey && nowMs>=lastScanMs && nowMs-lastScanMs<1700)return;
       lastScanMs=nowMs;
       const year=getYears();
@@ -547,6 +659,9 @@ void main() {
         gl.uniform1f(loc.uMeshCupRise,params.cupRise ?? 1);
         gl.uniform1f(loc.uMeshLobeCurl,params.lobeUnfurl ?? 1);
         gl.uniform1f(loc.uMeshBranchHeight,params.branchHeight ?? 1);
+        gl.uniform1f(loc.uMeshBasalSpread,params.basalSpread ?? 1.0);
+        gl.uniform1f(loc.uMeshBasalFusion,params.basalFusion ?? 0.90);
+        gl.uniform1f(loc.uMeshBasalVolume,params.basalVolume ?? 1.0);
         gl.uniform1f(loc.uMeshCortexDetail,params.branchCortexDetail ?? 1.15);
         gl.uniform1f(loc.uMeshPowder,params.branchPowder ?? 0.85);
         gl.uniform1f(loc.uMeshFissures,params.branchFissures ?? 0.65);
