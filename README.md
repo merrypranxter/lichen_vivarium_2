@@ -43,6 +43,28 @@ Controls: **Developmental Unfolding** 0–100% (0 uses original shape staging), 
 
 This is **dynamic heightfield/parallax morphogenesis**, not generated overhanging polygonal meshes. It preserves the renderer's WebGL2/iPhone architecture while improving the physically apparent motion. It intentionally uses simulated tissue age, biomass, fruiting and lagged hydration rather than decorative periodic sine animations, and the exact same shader runs for on-screen preview, GIF and MP4.
 
+## Phase 5: living fruticose skeletons
+
+**`branch-skeletons.js`** is a pure, seeded JS grammar generating *actual tubular WebGL2 mesh triangles* for the fruticose lichen family (engine 3). It builds once per source colony and then uses biological texture values in the vertex shader to elongate each segment from its attachment point, instead of repeatedly regenerating a new random structure. All 3D mesh passes share the existing canvas and GIF/MP4/PNG export pipeline.
+
+Two distinct biological inspirations are available in **Motion → True 3D Geometry → Branching architecture**:
+
+- **Cladonia:** terminal dichotomous tip division, progressively tapering cylinders, irregular tufts, multiple generations of forks (inspired by Cladina/Cladonia branching dynamics).
+- **Ramalina:** persistent primary axes with lateral buds emerging later from older tissue and flattened, somewhat straplike branches. This reflects *some* Ramalina growth architectures, not a claim that all species behave this way.
+
+Controls: branching architecture, stem density (0.5–2×), branch height (0.4–2×). The previously existing **Developmental Unfolding** slider affects these meshes, too: at 0, they appear as fully extended static anatomy; at 100%, local simulated biomass/biological age gradually releases each successive tube from its parent node. Hydration and lobe/cup controls still work independently.
+
+**Budgets:** the Lite mesh pass builds up to two independent branching systems and at most 46 tube segments per plant; Rich builds up to four systems and at most 114 tube segments per plant. There is no animation-time geometry regeneration. `Off` disables all mesh processing. In a representative three-colony mocked WebGL2 fixture, Lite assembled 2,784 total triangles (including cups and leaves) and Rich assembled 11,254. These are not device FPS measurements.
+
+**Regression tests:** `node --test tests/branch-skeletons.test.cjs` checks seeded determinism, vertex packing, finite geometry, distinct architectures, controllable density and segment caps using only built-in Node modules. GitHub Pages workflow runs this test before publishing, with no npm install or Netlify resources.
+
+**Scientific references** (architectural inspiration, not exact simulation validation):
+- [Meristem growth dynamics and branching patterns in Cladoniaceae](https://bsapubs.onlinelibrary.wiley.com/doi/10.2307/2656683)
+- [Diffuse growth in the fruticose beard lichen Ramalina usnea](https://scholarscommons.fgcu.edu/esploro/outputs/journalArticle/Diffuse-growth-in-the-fruticose-beard/99383341513406570)
+- [Fruticose growth-form glossary, Consortium of Lichen Herbaria](https://lichenportal.org/portal/glossary/individual.php?term=fruticose)
+
+Note: this is biologically *inspired* geometry driven by live simulated tissue age and biomass, not a validated reproduction of all anatomical development. Actual device shader execution and mobile export compatibility should still be tested on iPhone Safari.
+
 ## Phase 4: optional real 3D anatomy meshes
 
 A separate `geometry-layer.js` adds **real triangulated WebGL2 geometry**, composited onto the existing macro-photographic biological shader. This is not a second canvas, another rendering engine or a paid dependency.
