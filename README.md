@@ -43,6 +43,21 @@ Controls: **Developmental Unfolding** 0–100% (0 uses original shape staging), 
 
 This is **dynamic heightfield/parallax morphogenesis**, not generated overhanging polygonal meshes. It preserves the renderer's WebGL2/iPhone architecture while improving the physically apparent motion. It intentionally uses simulated tissue age, biomass, fruiting and lagged hydration rather than decorative periodic sine animations, and the exact same shader runs for on-screen preview, GIF and MP4.
 
+## Phase 6: cortical micromorphology and physical tip fibrils
+
+The **Motion → True 3D Geometry → Microscopic Cortex & Tip Anatomy** controls now texture the *actual 3D fruticose branch surfaces*, rather than scattering generic noise in screen space:
+
+- **Axial cortical striae and cross-wrinkles:** coordinates follow the cylindrical surface's circumference and branch direction, with true per-vertex elliptical/cylindrical surface normals. Cladonia-style tubes and flattened Ramalina-style straps receive different ridge frequencies.
+- **Powdery soralia / pale cortical patches:** seeded stable granules and patch clusters develop with local tissue age, including broader pseudocyphella-like pale patches on the Ramalina-style material. These are surface-shader microtextures, not a claim of physically simulated spore reproduction.
+- **Aged, dry fissures:** fine longitudinal irregular cracks darken along the cortex as tissue matures and hydration falls; they respond to the viscoelastic water level supplied by the living biology.
+- **Microscopic tip fibrils:** actual small tapering *triangular tube meshes* grow from genuine skeleton terminal nodes, with birth stages linked to existing biological growth. No re-randomizing between frames. Hard cap: 20 fibrils in Lite, 48 in Rich. Setting fibrils to zero eliminates their geometry.
+- **Material/lighting connection:** real analytic tube normals and UVs are packed with every branch vertex (19 floats instead of 14) and affect the same real directional light and user palette ramp used for cups and foliage.
+- **Controls and presets:** independent **Cortex ridges**, **Powdery soralia**, **Dry fissures**, and **3D fibrils** sliders (0–2×); presets **Velvet & Bloom** and **Ancient Cortex**. Changing material sliders updates uniforms directly; changing fibril density rebuilds only the optional mesh.
+- **Performance and fallback:** existing Off / Lite / Rich geometry modes remain. On a mocked three-species scene with default fibrils, Lite built approximately 2,880 triangles and Rich approximately 11,542, drawn in a shadow pass and a surface pass. This is a geometry count, **not** a measured frame rate on iPhone.
+- **Regression safety:** `node --test tests/*.test.cjs` checks 10 tests for two distinct branching grammars, deterministic seeds, finite/normalized normals, stable surface coordinates, bounded fibrils, mesh quality, and a clean Off fallback. The GitHub Pages workflow runs these tests before deploying.
+
+**Scope:** cortex ridges, soralia, and fissures currently use geometry-attached shading plus subtle normal variation; only the stems and fine terminal fibrils add real vertices. The materials are biologically inspired and artistically controllable, not a validated species-level tissue model. Actual compilation of GLSL by an iPhone WebGL2 driver and end-to-end GIF/MP4 recording still require device testing.
+
 ## Phase 5: living fruticose skeletons
 
 **`branch-skeletons.js`** is a pure, seeded JS grammar generating *actual tubular WebGL2 mesh triangles* for the fruticose lichen family (engine 3). It builds once per source colony and then uses biological texture values in the vertex shader to elongate each segment from its attachment point, instead of repeatedly regenerating a new random structure. All 3D mesh passes share the existing canvas and GIF/MP4/PNG export pipeline.
