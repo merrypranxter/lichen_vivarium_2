@@ -933,7 +933,7 @@
       }
 
       // Inoculate a new lichen thallus colony at normalized (u, v)
-      function inoculateColony(u, v, speciesIdx, radiusCells = 3.5) {
+      function inoculateColony(u, v, speciesIdx, radiusCells = 3.5, softSpawn = false) {
         const cx = Math.floor(u * GRID_SIZE);
         const cy = Math.floor(v * GRID_SIZE);
         const colId = (nextColonyCounter++ % 250) + 1;
@@ -950,7 +950,9 @@
             if (d2 <= rSq) {
               const idx = y * GRID_SIZE + x;
               const falloff = Math.max(0.15, 1.0 - Math.sqrt(d2) / (radiusCells + 0.5));
-              biomass[idx] = Math.max(biomass[idx], 0.42 * falloff);
+              // Windborne spores start below the visible cortex threshold;
+              // brush/manual colonies retain their instant preview seed.
+              biomass[idx] = Math.max(biomass[idx], (softSpawn ? 0.038 : 0.42) * falloff);
               ageField[idx] = 0.25 * falloff;
               stressField[idx] = 0.0;
               crackField[idx] = 0.0;
@@ -1048,7 +1050,9 @@
 
             // CASE A: Uncolonized or recently eroded bare substrate — check advancing front
             if (b < 0.05) {
-              if (maxNb > 0.14 && nec < 0.25) {
+              // Keep planted microscopic spores alive while they establish,
+              // even before their neighbors can support a mature growth front.
+              if ((maxNb > 0.14 || (col > 0 && b > 0.0001)) && nec < 0.25) {
                 // Once microscopic growth takes hold, keep its original species.
                 const frontSp = col > 0 ? sp : bestSp;
                 const frontCol = col > 0 ? col : bestCol;
@@ -1196,7 +1200,7 @@
           const rIdx = ry * GRID_SIZE + rx;
           if (biomass[rIdx] < 0.02 && necrosisField[rIdx] < 0.15 && nutrientField[rIdx] > 0.65) {
             const randomSpecies = Math.random() < 0.6 ? activeSpecies : Math.floor(Math.random() * 5);
-            inoculateColony(rx / GRID_SIZE, ry / GRID_SIZE, randomSpecies, 2.5);
+            inoculateColony(rx / GRID_SIZE, ry / GRID_SIZE, randomSpecies, 2.5, true);
           }
         }
       }
