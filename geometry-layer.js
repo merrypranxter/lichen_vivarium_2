@@ -9,7 +9,8 @@
     const { gl, fields, params, getYears } = api;
     const {
       GRID_SIZE, biomass, ageField, fruitingField, speciesField,
-      colonyIdField, colonyOriginX, colonyOriginY
+      colonyIdField, colonyOriginX, colonyOriginY,
+      rockField, waterField
     } = fields;
     const clamp = (v,a,b) => Math.min(b,Math.max(a,v));
     const hash = (a,b) => {
@@ -105,7 +106,7 @@ void main() {
            * smoothstep(0.003,0.06,b.g) * (1.0-b.a)
            * smoothstep(0.01,0.24,tipExtension);
     alpha *= 1.0-step(0.5,abs(aux.r*4.0-2.0));
-  } else {
+  } else if(kind < 4.5) {
     // A finite-thickness basal thallus physically supports the branching axes.
     // Radial upper skin, tapered margin, skirt and underside share one mesh.
     // Alive/dead tissue is sampled per-vertex from the original 256² biology.
@@ -124,6 +125,22 @@ void main() {
     // The outer biological front feather-blends toward the substrate.
     float feather=1.0-smoothstep(0.78,1.10,radial);
     alpha=life * feather * clamp(uMeshBasalFusion,0.0,1.0);
+    alpha*=1.0-step(0.5,abs(aux.r*4.0-2.0));
+  } else {
+    // Real rhizines follow substrate crevices, progressing through actual
+    // triangulated tubes. Their branching tracks source biological age.
+    float maturity=clamp(0.18*b.r+0.82*smoothstep(0.004,0.38,b.g),0.0,1.0);
+    float tip=smoothstep(aGrowth.x,
+                        aGrowth.x+max(0.04,aGrowth.y),maturity);
+    float extension=mix(1.0,tip,uMeshMorph);
+    vec3 grown=mix(aStemRoot,aLocal,extension);
+    uv+=grown.xy;
+    baseZ=max(0.0001,grown.z)*uMeshDepth;
+    float viable=smoothstep(0.045,0.25,b.r)
+                *smoothstep(0.004,0.07,b.g)
+                *(1.0-smoothstep(0.35,0.95,b.a));
+    alpha=viable*clamp(uMeshBasalFusion,0.0,1.0)
+          *smoothstep(0.015,0.26,extension);
     alpha*=1.0-step(0.5,abs(aux.r*4.0-2.0));
   }
 
@@ -271,7 +288,7 @@ void main() {
     diffuseBack=max(0.0,dot(n,-light));
     granular=grain;
   }
-  if(vMeshType>3.5){
+  if(vMeshType>3.5 && vMeshType<4.5){
     // Basal prothallus/root rind: radial fungal hyphae, mineral-rich seams,
     // and small cortex nodules. These fixed radial coordinates attach the
     // visual fibers to the same root disk as the real rising tube branches.
@@ -298,6 +315,22 @@ void main() {
     diffuse=max(0.0,dot(n,light));
     diffuseBack=max(0.0,dot(n,-light));
   }
+  if(vMeshType>4.5){
+    // Fine rootlet cortex remains tied to the same user palette but adopts
+    // darker, moisture-sensitive fungal fibers that sit inside mineral cracks.
+    float transverse=vCortexUV.x*6.2831853;
+    float axial=vCortexUV.y;
+    float fiber=0.5+0.5*sin(transverse*9.0
+                    +axial*22.0+vMeshSeed*18.0);
+    float grit=noise21(floor(vec2(vCortexUV.x*130.0,
+                      axial*95.0)+vMeshSeed*43.0));
+    float wet=clamp(uMeshWet,0.0,1.0);
+    base*=mix(0.40,0.66,wet)*(0.84+0.22*fiber+0.12*grit);
+    n=normalize(n+vec3(cos(transverse)*.08*fiber,
+                       sin(transverse)*.08*fiber,0.0));
+    diffuse=max(0.0,dot(n,light));
+    diffuseBack=max(0.0,dot(n,-light));
+  }
   if(vMeshType<1.5)base*=mix(0.89,1.07,granular);
   float sheen=pow(max(0.0,dot(reflect(-light,n),vec3(0.0,0.0,1.0))),32.0);
   vec3 lit=base*(0.24+diffuse*0.77+diffuseBack*0.12)+vec3(sheen*0.16);
@@ -307,7 +340,8 @@ void main() {
   lit=lit/(lit+vec3(0.30));
   // Branch tubes have an opaque cortex while foliose tips are translucent.
   float surfaceAlpha=vMeshType<0.5?0.95:
-                       (vMeshType<1.5?0.74:(vMeshType>3.5?0.92:0.96));
+                       (vMeshType<1.5?0.74:
+                       (vMeshType>4.5?0.85:(vMeshType>3.5?0.92:0.96)));
   fragColor=vec4(clamp(lit,0.0,1.0),vMeshAlpha*surfaceAlpha);
 }
 `;
@@ -377,7 +411,8 @@ void main() {
     const branchAnchors=new Map();
     let vertexCount=0, lastScanMs=-Infinity, lastBuildKey='', currentYear=0;
     let stats={cups:0,lobes:0,branchStems:0,branchSegments:0,
-      basalThalli:0,fibrils:0,triangles:0,quality:'off'};
+      basalThalli:0,fibrils:0,rhizines:0,rhizineSegments:0,
+      rhizineForks:0,triangles:0,quality:'off'};
     function getLimits(quality) {
       return quality==='rich'
         ? {cupLimit:44,lobeLimit:16,cupSegments:18,lobeSteps:14,branchLimit:4}
@@ -568,7 +603,8 @@ void main() {
     function rebuild(quality){
       const limit=getLimits(quality);
       const packed=[];
-      let cups=0,leaves=0,branchStems=0,branchSegments=0,basalThalli=0,fibrils=0;
+      let cups=0,leaves=0,branchStems=0,branchSegments=0,
+          basalThalli=0,fibrils=0,rhizines=0,rhizineSegments=0,rhizineForks=0;
       for(const o of cupAnchors.values()){
         if(cups>=limit.cupLimit)break;
         cupGeometry(packed,o.anchor,o.seed,limit.cupSegments);
@@ -594,6 +630,26 @@ void main() {
           basalThalli++;
         }
       }
+      // Rhizines share root coordinates and seek the existing rock cleavage
+      // and moisture valleys. No second procedural rock is generated.
+      if ((params.basalFusion ?? 0.9)>0.001 &&
+          (params.rhizineDensity ?? 1.0)>0 &&
+          window.LichenRhizines && typeof window.LichenRhizines.grow==='function'){
+        let rootSystems=0;
+        for (const o of branchAnchors.values()){
+          if(rootSystems>=limit.branchLimit)break;
+          const rh=window.LichenRhizines.grow(packed,o.anchor,o.seed,{
+            rockField,waterField,gridSize:GRID_SIZE,
+            quality,density:params.rhizineDensity ?? 1.0,
+            grip:params.rhizineGrip ?? 1.3,
+            length:params.rhizineLength ?? 1.0,
+            spread:params.basalSpread ?? 1.0
+          });
+          rhizines+=rh.roots;rhizineSegments+=rh.segments;
+          rhizineForks+=rh.forks;
+          rootSystems++;
+        }
+      }
       // Fruticose anatomy is built once from a stable colony identity.
       // Its triangle vertices grow entirely in the GPU as biological
       // age/biomass changes, so nothing flickers between rebuilds.
@@ -617,6 +673,7 @@ void main() {
       gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
       gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(packed),gl.DYNAMIC_DRAW);
       stats={cups,lobes:leaves,branchStems,branchSegments,basalThalli,fibrils,
+             rhizines,rhizineSegments,rhizineForks,
              triangles:vertexCount/3,quality};
     }
     function scan(nowMs,quality){
@@ -624,7 +681,11 @@ void main() {
       const buildKey=quality+'|'+(params.branchPattern||'cladonia')
         +'|'+(params.branchDensity ?? 1)
         +'|'+(params.branchFibrils ?? 0.8)
-        +'|'+((params.basalFusion ?? .9)>0.001?1:0);
+        +'|'+((params.basalFusion ?? .9)>0.001?1:0)
+        +'|'+(params.rhizineDensity ?? 1.0)
+        +'|'+(params.rhizineGrip ?? 1.3)
+        +'|'+(params.rhizineLength ?? 1.0)
+        +'|'+(params.basalSpread ?? 1.0);
       if(buildKey===lastBuildKey && nowMs>=lastScanMs && nowMs-lastScanMs<1700)return;
       lastScanMs=nowMs;
       const year=getYears();
