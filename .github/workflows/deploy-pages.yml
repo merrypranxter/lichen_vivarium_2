@@ -8,6 +8,7 @@ on:
       - studio-runtime.js
       - geometry-layer.js
       - branch-skeletons.js
+      - tests/branch-skeletons.test.cjs
       - studio-layout.css
       - palette-library.js
       - .github/workflows/deploy-pages.yml
@@ -31,6 +32,8 @@ jobs:
     steps:
       - name: Check out the source
         uses: actions/checkout@v4
+      - name: Check deterministic 3D branch skeletons (no dependencies)
+        run: node --test tests/branch-skeletons.test.cjs
       - name: Prepare static site (no npm build or paid host)
         run: |
           mkdir -p _site
