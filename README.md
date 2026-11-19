@@ -28,6 +28,21 @@ The original attached prototype used a stochastic binary frontier step: when a r
 
 A deliberately evolving lichen colony does **not** form a mathematically seamless video loop by default: the growth is real, not reverse-played or boomeranged.
 
+### Anatomical morphogenesis — next phase
+
+**Motion → Anatomical Morphogenesis** adds a *biological-stage-driven* 2.5D relief engine, using existing GPU anatomy without expensive new per-pixel noise loops:
+
+- **Foliose lobe unfolding:** cortex thickens, free tips lift and expose pale medulla, then develop hydration-sensitive curl with tissue maturity.
+- **Fruticose branching:** primary canopy tubes emerge first, secondary branches fill in later and tertiary fine filaments emerge last; branch tips are raised as living biomass approaches the growing front.
+- **Scyphi / pixie cups:** developing stalks rise before the hollow funnel flares and produces marginal fruiting nodules. Cup radius, height and coloring now have a gradual reproductive stage instead of a binary near-mature appearance.
+- **Gelatinous/umbilicate swell:** relief responds gradually to both hydration and the age of the living tissue. Rehydration and desiccation have different relaxation speeds, so swelling and contraction read as changes to physical volume rather than flickering.
+- **Shared apothecia:** gradual reproductive-stage emergence on the remaining lichen classes.
+- **Spore germination:** windborne colonies now begin below the visible cortex threshold, establishing and thickening progressively. Manual brush placement still offers an immediately visible seed.
+
+Controls: **Developmental Unfolding** 0–100% (0 uses original shape staging), **Lobe edge lift & curl**, **Pixie cup stalk → hollow flare**, **Branch tip extension**, and **Hydration blisters & jelly swell** (each 0–2×). Presets: **Subtle Biology** and **Dramatic Unfolding**.
+
+This is **dynamic heightfield/parallax morphogenesis**, not generated overhanging polygonal meshes. It preserves the renderer's WebGL2/iPhone architecture while improving the physically apparent motion. It intentionally uses simulated tissue age, biomass, fruiting and lagged hydration rather than decorative periodic sine animations, and the exact same shader runs for on-screen preview, GIF and MP4.
+
 ## New: MATHEMAGICAL! Color Vault
 
 The **Color Lab** tab retains Gemini's six anatomical material modes and adds **69 genuine named color palettes** from the user's existing MATHEMAGICAL! and Slimekimi projects. Source files: `magnetic_art_app/src/core/palette-catalog.js` (57 source-authored presets) and `slimekimiapp/src/lib/palettes.ts` (12 presets). Original palette stop counts are preserved: 12-stop originals remain 12-stop editable ramps.
