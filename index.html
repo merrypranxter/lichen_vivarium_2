@@ -2932,8 +2932,53 @@
       ]) bindSlider(id,val,key,v=>`${v.toFixed(2)}x`);
       const substrateViewSelect=document.getElementById('substrateViewSelect');
       substrateViewSelect.addEventListener('change',()=>{
-        params.substrateView = Math.max(0,Math.min(4,Number(substrateViewSelect.value)||0));
+        params.substrateView = Math.max(0,Math.min(8,Number(substrateViewSelect.value)||0));
       });
+      for(const [id,val,key] of [
+        ['weatheringIntensitySlider','weatheringIntensityVal','weatheringIntensity'],
+        ['weatheringErosionSlider','weatheringErosionVal','weatheringErosion'],
+        ['weatheringOxidesSlider','weatheringOxidesVal','weatheringOxides'],
+        ['weatheringResidueSlider','weatheringResidueVal','weatheringResidue'],
+        ['weatheringReliefSlider','weatheringReliefVal','weatheringRelief'],
+        ['weatheringPigmentSlider','weatheringPigmentVal','weatheringPigment']
+      ]) bindSlider(id,val,key,v=>`${v.toFixed(2)}x`);
+      const weatheringCompareButton=document.getElementById('weatheringCompareBtn');
+      function updateWeatheringCompare(){
+        weatheringCompareButton.textContent=params.weatheringBefore
+          ? 'Before / After · Show scarred rock'
+          : 'Before / After · Original rock';
+      }
+      weatheringCompareButton.addEventListener('click',()=>{
+        params.weatheringBefore=!params.weatheringBefore;
+        params.substrateView=0;
+        substrateViewSelect.value='0';
+        updateWeatheringCompare();
+      });
+      document.getElementById('weatheringResetBtn').addEventListener('click',()=>{
+        if(!rockWeathering)return;
+        if(!window.confirm('Erase ALL etched pits and persistent geological stains from this rock? Living lichens stay intact.'))return;
+        rockWeathering.reset();
+      });
+      function weatheringPreset(intensity,erosion,oxides,residue,relief,pigment){
+        for(const [key,id,val,v] of [
+          ['weatheringIntensity','weatheringIntensitySlider','weatheringIntensityVal',intensity],
+          ['weatheringErosion','weatheringErosionSlider','weatheringErosionVal',erosion],
+          ['weatheringOxides','weatheringOxidesSlider','weatheringOxidesVal',oxides],
+          ['weatheringResidue','weatheringResidueSlider','weatheringResidueVal',residue],
+          ['weatheringRelief','weatheringReliefSlider','weatheringReliefVal',relief],
+          ['weatheringPigment','weatheringPigmentSlider','weatheringPigmentVal',pigment]
+        ]){
+          params[key]=v;
+          document.getElementById(id).value=v;
+          document.getElementById(val).textContent=`${v.toFixed(2)}x`;
+        }
+        params.weatheringBefore=false;
+        updateWeatheringCompare();
+      }
+      document.getElementById('weatheringSlowPreset').addEventListener('click',
+        ()=>weatheringPreset(.60,.75,1.10,.95,.60,1.15));
+      document.getElementById('weatheringWildPreset').addEventListener('click',
+        ()=>weatheringPreset(1.85,1.75,1.65,1.80,1.65,1.85));
       function substratePreset(influence,retention,exposure,crevice,mineral){
         for(const [param,id,val,setting] of [
           ['substrateInfluence','substrateInfluenceSlider','substrateInfluenceVal',influence],
