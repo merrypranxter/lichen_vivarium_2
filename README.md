@@ -43,6 +43,21 @@ Controls: **Developmental Unfolding** 0–100% (0 uses original shape staging), 
 
 This is **dynamic heightfield/parallax morphogenesis**, not generated overhanging polygonal meshes. It preserves the renderer's WebGL2/iPhone architecture while improving the physically apparent motion. It intentionally uses simulated tissue age, biomass, fruiting and lagged hydration rather than decorative periodic sine animations, and the exact same shader runs for on-screen preview, GIF and MP4.
 
+## Phase 4: optional real 3D anatomy meshes
+
+A separate `geometry-layer.js` adds **real triangulated WebGL2 geometry**, composited onto the existing macro-photographic biological shader. This is not a second canvas, another rendering engine or a paid dependency.
+
+- **Hollow scyphi:** polygonal tubes, stalks and flared goblet rims with modeled inward-facing inner walls. Fruiting and biomass values sampled from the active biological texture drive their emergence.
+- **Lifted foliose ribbons:** triangulated rosette lobes, anchored to biological colony origins, bend upward at their free margins. Biological tissue age, biomass, humidity, depth and lobe curl controls affect their raised geometry.
+- **Geometry-derived shadows:** a lightweight sun-projected mesh pass casts silhouettes on top of the same rock scene before the raised surfaces are rendered.
+- **Placement alignment:** sites use the same approximate Worley cellular cup-center domain as the existing procedural Cladonia shader; nearby fruiting tissue is sampled separately to animate each mesh.
+- **Shared coloration:** the original color modes and 69-palette ramp are available to the mesh material; highlights and subtle microgranulation follow its actual triangle normals.
+- **Mobile performance:** `Motion → True 3D Geometry` defaults to **Lite** (at most 16 hollow cups and up to 9 raised lobes per colony). **Rich** raises the budget (up to 44 cups and 16 lobes per colony, with denser triangulation); **Off** always restores the original shader only.
+- **Controls:** physical mesh height and oblique macro silhouette angle. These mesh settings apply during both interactive preview and frame-by-frame PNG, GIF and MP4 export.
+- **Failure isolation:** if WebGL2 does not support the geometry shader or the optional GPU layer fails to initialize or draw, the existing biological shader continues by itself and the control switches to Off.
+
+**Scope / limitations:** This is genuine 3D *surface geometry* composited over a 2.5D rock image, using an oblique fixed macro-camera projection for alignment. It is **not yet** a freely orbitable volumetric 3D ecosystem, and its shadow projection is an approximation rather than a full physically-based shadow map. The original detailed lichen shader is intentionally unchanged to avoid breaking the application's realism, responsiveness or export workflow.
+
 ## New: MATHEMAGICAL! Color Vault
 
 The **Color Lab** tab retains Gemini's six anatomical material modes and adds **69 genuine named color palettes** from the user's existing MATHEMAGICAL! and Slimekimi projects. Source files: `magnetic_art_app/src/core/palette-catalog.js` (57 source-authored presets) and `slimekimiapp/src/lib/palettes.ts` (12 presets). Original palette stop counts are preserved: 12-stop originals remain 12-stop editable ramps.
