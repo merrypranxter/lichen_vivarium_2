@@ -43,6 +43,33 @@ Controls: **Developmental Unfolding** 0–100% (0 uses original shape staging), 
 
 This is **dynamic heightfield/parallax morphogenesis**, not generated overhanging polygonal meshes. It preserves the renderer's WebGL2/iPhone architecture while improving the physically apparent motion. It intentionally uses simulated tissue age, biomass, fruiting and lagged hydration rather than decorative periodic sine animations, and the exact same shader runs for on-screen preview, GIF and MP4.
 
+## Phase 9: the substrate as an ecological actor
+
+**`substrate-ecology.js`** activates a lightweight, coupled microclimate layer over the EXISTING 256×256 slate, water and biological fields. It uses the same `rockField` and `waterField` already consumed by 3D rhizines, and does not create unrelated fake rock geometry.
+
+### Living terrain and species response
+
+- **Crack reservoir:** crevice retention is derived from relative rock depth and local cleavage gradients. Between rainfall and dry spells, low protected zones hold moisture while exposed ridges lose it. Four-neighbor lateral water diffusion updates at every third biological tick, retaining the fixed-step timebase and avoiding heavy simulation work on every rendered frame.
+- **Mineral seams:** local mineral availability follows the rock's height discontinuities, surface exposure and a deliberately *approximate* correspondence with the visible shader's white quartz-vein trajectory. Biological nutrient replenishment now varies by mineral patch, rather than remaining spatially uniform.
+- **Biological affinity:** the five morphological groups have distinct stylized responses to moisture, crack depth and mineral content. Crustose pioneers, foliose sheets, fruticose holdfasts, squamulose cups and gelatinous/umbilicate forms therefore choose and colonize different terrain. This affects advancing colony fronts and established tissue growth.
+- **Drying and senescence:** local water and exposure now influence desiccation stress. Crevice refuges preserve living tissue longer in a dry spell; open ridges accumulate stress faster.
+- **Spore settlement:** a windborne spore's survival chance is influenced by local growth suitability, while the existing windborne dispersal system remains intact.
+- **Rhizine connection:** existing real 3D rootlet meshes continue to follow the same evolving moisture field and rock depressions, avoiding a second incompatible substrate.
+
+### Controls and diagnostic maps
+
+There is a separate **Substrate** tab containing Terrain Influence 0–2× (zero restores legacy biological growth multipliers and drying/leaching equations for A/B comparison), Moisture Retention 0–2×, Exposed Rock Desiccation 0–2×, Crevice Affinity 0–2×, and Mineral Leaching 0–2×. Quick presets: **Wet Crevices** and **Harsh Slate**.
+
+The **Inspect Living Terrain** selector offers the original artwork plus four scientific-eye overlays: cyan moisture, magenta mineral richness, lime fissures and orange exposed rock. Each is sampled from the original evolving CPU field through a dedicated 256² RGBA8 GPU texture (unit 3); the extra upload is only performed while a diagnostic map is enabled. The 69-palette color ramp remains on unit 2, independent of the diagnostic texture. Heatmaps appear in both pinned preview and the existing GIF/MP4/PNG rendering route.
+
+### Performance, tests and scope
+
+No third-party dependencies or Netlify deployments. All new biology remains fixed-grid CPU work; the dynamic moisture field uses double buffering and updates once per 3 simulated ticks. Geometry quality, original photorealistic shader, material controls and export settings remain independent.
+
+The regression suite (`node --test tests/*.test.cjs`) now includes **25 tests** across the full 3D/biological integration, including valley versus ridge hydration, morphological habitat preference, mineral seam effects, exact legacy growth-factor fallback, finite wet/dry cycling, map buffer fidelity, and DOM/renderer wiring. The GitHub Pages workflow runs these before publishing.
+
+**Important modeling distinction:** substrate responses and growth-form preferences are biologically **inspired artistic approximations**, not calibrated growth-rate predictions for real species. CPU rock and GPU macro rock use related but not numerically identical procedural noise; the macro-visible quartz vein is approximated in the mineral map. Mobile Safari shader performance, iPhone pixel output and full GIF/MP4 export still need on-device verification.
+
 ## Phase 8: lithotropic rhizines and living substrate attachment
 
 **`rhizine-network.js`** adds real, compact, triangular 3D attachment filaments beneath each branching colony's basal thallus. The pathways are anchored to its existing `colonyOriginX/Y` and sample the **same `rockField` and `waterField` arrays** already used by the simulation. The target is realistic-looking attachment to low, moisture-retaining crevices, without a second artificial rock texture.
