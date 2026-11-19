@@ -22,6 +22,7 @@ precision highp float;
 layout(location=0) in vec2 aAnchor;
 layout(location=1) in vec3 aLocal;
 layout(location=2) in vec2 aMeta;
+layout(location=3) in vec2 aBiologySample; // biology can sit near the geometric Worley center
 uniform sampler2D uMeshBio;
 uniform sampler2D uMeshAux;
 uniform float uMeshZoom;
@@ -45,8 +46,8 @@ void main() {
   float kind = aMeta.x; // 0: real hollow cup, 1: actual foliose ribbon.
   float baseZ = 0.0;
   vec2 uv = aAnchor;
-  vec4 b = texture(uMeshBio, clamp(uv,0.002,0.998));
-  vec4 aux = texture(uMeshAux, clamp(uv,0.002,0.998));
+  vec4 b = texture(uMeshBio, clamp(aBiologySample,0.002,0.998));
+  vec4 aux = texture(uMeshAux, clamp(aBiologySample,0.002,0.998));
   float alpha = 0.0;
 
   if (kind < 0.5) {
@@ -194,14 +195,16 @@ void main() {
     if(!vao || !buffer)throw Error('3D mesh buffer allocation failed');
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
-    // [anchor.x, anchor.y, offset.x, offset.y, rise, type, stable color seed]
-    const stride=7*4;
+    // [anchor.xy, local.xyz, type, colorSeed, biological-sampling.xy]
+    const stride=9*4;
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0,2,gl.FLOAT,false,stride,0);
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(1,3,gl.FLOAT,false,stride,2*4);
     gl.enableVertexAttribArray(2);
     gl.vertexAttribPointer(2,2,gl.FLOAT,false,stride,5*4);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3,2,gl.FLOAT,false,stride,7*4);
     gl.bindVertexArray(null);
 
     const cupAnchors=new Map();
@@ -214,7 +217,8 @@ void main() {
         : {cupLimit:16,lobeLimit:9,cupSegments:12,lobeSteps:10};
     }
     function add(arr,anchor,x,y,z,type,seed){
-      arr.push(anchor[0],anchor[1],x,y,z,type,seed);
+      arr.push(anchor[0],anchor[1],x,y,z,type,seed,
+               anchor[2] ?? anchor[0],anchor[3] ?? anchor[1]);
     }
     function cupGeometry(arr,anchor,seed,segments){
       // Each annular ring is a real 3D surface. The last two rings fold inward,
@@ -286,26 +290,52 @@ void main() {
       }
       // Stable cell-lattice anchors. Cells are only allocated when fruiting
       // genuinely exists; after that, animation is entirely driven by textures.
-      const spacing=11;
-      for(let y=6;y<GRID_SIZE-6;y+=spacing){
-        for(let x=6;x<GRID_SIZE-6;x+=spacing){
-          if(cupAnchors.size>=max.cupLimit*2)break;
-          const key=x+':'+y;
-          if(cupAnchors.has(key))continue;
-          let peak=0,px=0,py=0;
-          for(let dy=-4;dy<=4;dy+=2)for(let dx=-4;dx<=4;dx+=2){
-            const sx=x+dx,sy=y+dy,idx=sy*GRID_SIZE+sx;
-            if(speciesField[idx]!==3||biomass[idx]<0.075)continue;
-            const fruit=fruitingField[idx];
-            if(fruit>peak){peak=fruit;px=sx;py=sy;}
-          }
-          if(peak>0.045){
-            cupAnchors.set(key,{
-              anchor:[(px+0.5)/GRID_SIZE,(py+0.5)/GRID_SIZE],
-              seed:hash(x,y)
-            });
-          }
+      // Place cups in the *same cellular domains* as the biological shader's
+      // worley(mUv * 22.0 + 5.3, 0.78) scyphi. Geometry and original anatomy
+      // therefore agree on where cup sites belong, not an unrelated screen grid.
+      const fract=t=>t-Math.floor(t);
+      const glslHash21=(x,y)=>{
+        let a=fract(x*123.34),b=fract(y*456.21);
+        const dot=a*(a+45.32)+b*(b+45.32);
+        a+=dot;b+=dot;
+        return fract(a*b);
+      };
+      const cupCandidates=[];
+      for(let y=5;y<=28;y++)for(let x=5;x<=28;x++){
+        const key=x+':'+y;
+        if(cupAnchors.has(key))continue;
+        if(glslHash21(x,y)<0.24)continue; // original goblet suitability
+        const rx=fract(Math.sin(x*127.1+y*311.7)*43758.5453123);
+        const ry=fract(Math.sin(x*269.5+y*183.3)*43758.5453123);
+        const cx=(x+0.11+0.78*rx-5.3)/22.0;
+        const cy=(y+0.11+0.78*ry-5.3)/22.0;
+        if(cx<0.02||cx>0.98||cy<0.02||cy>0.98)continue;
+        const px=Math.floor(cx*GRID_SIZE),py=Math.floor(cy*GRID_SIZE);
+        let peak=0,sx=px,sy=py;
+        // The shader's small organic domain-warp shifts local biological
+        // pixels by a few cells: sample nearby while retaining the original
+        // fixed polygonal center as the real mesh's physical anchor.
+        for(let dy=-6;dy<=6;dy+=2)for(let dx=-6;dx<=6;dx+=2){
+          const xx=px+dx,yy=py+dy;
+          if(xx<1||yy<1||xx>=GRID_SIZE-1||yy>=GRID_SIZE-1)continue;
+          const i=yy*GRID_SIZE+xx;
+          if(speciesField[i]!==3||biomass[i]<0.075)continue;
+          const val=fruitingField[i]*(1.0-0.025*Math.hypot(dx,dy));
+          if(val>peak){peak=val;sx=xx;sy=yy;}
         }
+        if(peak>0.045)cupCandidates.push({
+          key,seed:hash(x,y),
+          // vertex location is in the existing cup's Worley domain;
+          // fruiting intensity is sampled from the nearby growing tissue.
+          anchor:[cx,cy,(sx+0.5)/GRID_SIZE,(sy+0.5)/GRID_SIZE]
+        });
+      }
+      // Deterministic site distribution instead of filling only the topmost
+      // rows of the rock when the Lite GPU budget is reached.
+      cupCandidates.sort((a,b)=>a.seed-b.seed);
+      for(const o of cupCandidates){
+        if(cupAnchors.size>=max.cupLimit*2)break;
+        cupAnchors.set(o.key,{anchor:o.anchor,seed:o.seed});
       }
     }
     function rebuild(quality){
@@ -326,7 +356,7 @@ void main() {
         // Prevent an uncontrolled number of independently painted foliose colonies.
         if(leaves>=limit.lobeLimit*3)break;
       }
-      vertexCount=packed.length/7;
+      vertexCount=packed.length/9;
       gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
       gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(packed),gl.DYNAMIC_DRAW);
       stats={cups,lobes:leaves,triangles:vertexCount/3,quality};
