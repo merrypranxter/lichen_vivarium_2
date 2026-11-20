@@ -18,6 +18,7 @@ on:
       - rhizine-network.js
       - substrate-ecology.js
       - rock-weathering.js
+      - succession-ecology.js
       - studio-layout.css
       - palette-library.js
       - .github/workflows/deploy-pages.yml
@@ -46,7 +47,7 @@ jobs:
       - name: Prepare static site (no npm build or paid host)
         run: |
           mkdir -p _site
-          cp shared-material.js foliose-anatomy.js tissue-hydration.js specimen-state.js specimen-studio.js specimen-studio.css index.html studio-runtime.js geometry-layer.js branch-skeletons.js rhizine-network.js substrate-ecology.js rock-weathering.js studio-layout.css palette-library.js _site/
+          cp shared-material.js foliose-anatomy.js tissue-hydration.js specimen-state.js specimen-studio.js specimen-studio.css index.html studio-runtime.js geometry-layer.js branch-skeletons.js rhizine-network.js substrate-ecology.js rock-weathering.js succession-ecology.js studio-layout.css palette-library.js _site/
           touch _site/.nojekyll
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
