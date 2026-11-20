@@ -45,9 +45,8 @@
       const pioneer=clamp((1-legacy)*(.56+.44*rock));
       return {legacy,secondary,pioneer,wet,nutrients,rock,oxide};
     }
-    function affinity(i,species){
+    function affinityFromSite(s,species){
       const guild=guilds[species]||guilds[0];
-      const s=site(i);
       const primary=clamp(Number(params.successionPioneers??1),0,2);
       const secondary=clamp(Number(params.successionHeirs??1),0,2);
       const relativeWet=s.wet-.55;
@@ -60,17 +59,20 @@
                   (s.nutrients-.5)*.14;
       return clamp(1+strength()*value,.35,2.40);
     }
+    function affinity(i,species) {
+      if(strength()===0)return 1;
+      return affinityFromSite(site(i),species);
+    }
     function recruitment(i,species){
       if(strength()===0)return 1;
       const s=site(i);
-      return clamp(affinity(i,species)*(.86+.24*s.nutrients),.25,2.30);
+      return clamp(affinityFromSite(s,species)*(.86+.24*s.nutrients),.25,2.30);
     }
     function growthFactor(i,species){
       if(strength()===0)return 1;
       const s=site(i);
-      // Less pronounced than settlement to avoid destabilizing the original
-      // growth, and zero has an exact A/B fallback.
-      return clamp(1+(affinity(i,species)-1)*.38+
+      // Avoid double niche allocation in the biology's 256² hot loop.
+      return clamp(1+(affinityFromSite(s,species)-1)*.38+
                    strength()*(s.secondary-.15)*.06,.65,1.45);
     }
     function competition(i,localSpecies,neighborSpecies){
