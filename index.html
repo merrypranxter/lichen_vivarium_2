@@ -764,6 +764,51 @@
           <button id="substrateHarshPreset" class="lichen-studio-button">☀️ Harsh Slate</button>
         </div>
       </div>
+      <div class="rounded-xl border border-fuchsia-800/50 bg-[#201024]/70 p-3 space-y-3">
+        <h3 class="text-sm font-bold text-fuchsia-200">Ecological Succession · Generations of Lichen</h3>
+        <p class="text-[11px] text-slate-400 leading-relaxed">
+          Crustose pioneers settle fresh mineral surfaces; old etched and stained
+          stone becomes better habitat for foliose, fruticose and moisture-loving
+          successor colonies. Shared living boundaries compete without swapping
+          their physical anatomy.
+        </p>
+        <label class="block text-xs text-slate-200" for="successionInfluenceSlider">
+          <span class="flex justify-between mb-1"><strong>Ecological Succession</strong>
+            <output id="successionInfluenceVal" class="mono text-fuchsia-200">1.00x</output></span>
+          <input id="successionInfluenceSlider" type="range" class="w-full"
+            min="0" max="2" step="0.05" value="1"/>
+          <span class="text-[10px] text-slate-400">0 restores the previous growth and spore-selection rules.</span>
+        </label>
+        <label class="block text-xs text-slate-200" for="successionPioneerSlider">
+          <span class="flex justify-between mb-1"><span>Fresh-Rock Pioneer Advantage</span>
+            <output id="successionPioneerVal" class="mono text-fuchsia-200">1.00x</output></span>
+          <input id="successionPioneerSlider" type="range" class="w-full"
+            min="0" max="2" step="0.05" value="1"/>
+        </label>
+        <label class="block text-xs text-slate-200" for="successionHeirSlider">
+          <span class="flex justify-between mb-1"><span>Old-Rock Successor Advantage</span>
+            <output id="successionHeirVal" class="mono text-fuchsia-200">1.15x</output></span>
+          <input id="successionHeirSlider" type="range" class="w-full"
+            min="0" max="2" step="0.05" value="1.15"/>
+        </label>
+        <label class="block text-xs text-slate-200" for="successionCompetitionSlider">
+          <span class="flex justify-between mb-1"><span>Competing Colony Boundaries</span>
+            <output id="successionCompetitionVal" class="mono text-fuchsia-200">1.00x</output></span>
+          <input id="successionCompetitionSlider" type="range" class="w-full"
+            min="0" max="2" step="0.05" value="1"/>
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="successionPioneerPreset" class="lichen-studio-button">Fresh Slate</button>
+          <button id="successionAncientPreset" class="lichen-studio-button lichen-primary">Ancient Graveyard</button>
+        </div>
+        <div id="successionStatus" role="status" class="mono text-[11px] text-fuchsia-200">
+          Monitoring pioneer and successor niches…
+        </div>
+        <p class="text-[10px] text-slate-500">
+          This is a stylized ecosystem rule, not an empirically calibrated species model.
+          It reads existing geology and biology; it never erases Codex's material-study specimen.
+        </p>
+      </div>
       <div class="rounded-xl border border-amber-800/50 bg-[#23170f]/70 p-3 space-y-3">
         <h3 class="text-sm font-bold text-amber-200">🧪 Biogenic Weathering · Geological Memory</h3>
         <p class="text-[11px] text-slate-400 leading-relaxed">
@@ -825,6 +870,7 @@
           <option value="6">Weathering · oxide bloom (copper)</option>
           <option value="7">Weathering · organic stains (teal)</option>
           <option value="8">Weathering · geological memory (magenta)</option>
+          <option value="9">Succession · potential successor niches (violet/gold)</option>
         </select>
         <p class="text-[10px] text-slate-400">Diagnostic overlays work in the pinned preview and export. Set to Artwork to see the unchanged full-color rendering.</p>
         <div id="substrateStats" role="status" class="mono text-[11px] text-teal-200">Preparing rock microclimate…</div>
@@ -2647,18 +2693,21 @@
           // Optional science-eye map of the SAME physical fields that steer
           // colony expansion. Overlay rather than replacing the artwork.
           if(uSubstrateView>0) {
-            bool geological=uSubstrateView>4;
+            bool succession=uSubstrateView==9;
+            bool geological=uSubstrateView>4&&!succession;
             vec4 habitat=geological ? texture(uWeatheringMap,uv)
                                     : texture(uSubstrateMap,uv);
-            int channel=geological?uSubstrateView-4:uSubstrateView;
+            int channel=succession?2:(geological?uSubstrateView-4:uSubstrateView);
             float site=channel==1 ? habitat.r :
                        (channel==2 ? habitat.g :
                        (channel==3 ? habitat.b : habitat.a));
-            vec3 lowColor=geological ? vec3(.07,.08,.14) :
+            vec3 lowColor=succession ? vec3(.19,.08,.32) :
+              geological ? vec3(.07,.08,.14) :
               (channel==1 ? vec3(.20,.07,.20) :
               (channel==2 ? vec3(.10,.13,.19) :
               (channel==3 ? vec3(.08,.14,.16) : vec3(.06,.13,.25))));
-            vec3 highColor=geological
+            vec3 highColor=succession ? vec3(1.0,.76,.25) :
+              geological
               ? (channel==1 ? vec3(.78,.48,1.0) :
                 (channel==2 ? vec3(1.0,.50,.16) :
                 (channel==3 ? vec3(.20,.98,.79) : vec3(.94,.16,.79))))
@@ -3100,9 +3149,31 @@
         ['substrateCreviceSlider','substrateCreviceVal','substrateCreviceBias'],
         ['substrateMineralSlider','substrateMineralVal','substrateMineralFlux']
       ]) bindSlider(id,val,key,v=>`${v.toFixed(2)}x`);
+      for (const [id,val,param] of [
+        ['successionInfluenceSlider','successionInfluenceVal','successionInfluence'],
+        ['successionPioneerSlider','successionPioneerVal','successionPioneers'],
+        ['successionHeirSlider','successionHeirVal','successionHeirs'],
+        ['successionCompetitionSlider','successionCompetitionVal','successionCompetition']
+      ]) bindSlider(id,val,param,v=>`${v.toFixed(2)}x`);
+      function successionPreset(influence,pioneers,heirs,competition){
+        for(const [param,id,val,v] of [
+          ['successionInfluence','successionInfluenceSlider','successionInfluenceVal',influence],
+          ['successionPioneers','successionPioneerSlider','successionPioneerVal',pioneers],
+          ['successionHeirs','successionHeirSlider','successionHeirVal',heirs],
+          ['successionCompetition','successionCompetitionSlider','successionCompetitionVal',competition]
+        ]){
+          params[param]=v;
+          document.getElementById(id).value=v;
+          document.getElementById(val).textContent=`${v.toFixed(2)}x`;
+        }
+      }
+      document.getElementById('successionPioneerPreset').addEventListener('click',
+        ()=>successionPreset(1.20,1.85,.35,.65));
+      document.getElementById('successionAncientPreset').addEventListener('click',
+        ()=>successionPreset(1.65,.35,1.85,1.35));
       const substrateViewSelect=document.getElementById('substrateViewSelect');
       substrateViewSelect.addEventListener('change',()=>{
-        params.substrateView = Math.max(0,Math.min(8,Number(substrateViewSelect.value)||0));
+        params.substrateView = Math.max(0,Math.min(9,Number(substrateViewSelect.value)||0));
       });
       for(const [id,val,key] of [
         ['weatheringIntensitySlider','weatheringIntensityVal','weatheringIntensity'],
@@ -3546,7 +3617,9 @@
         // A diagnostic map uses an additional 256² RGBA8 texture only while
         // explicitly enabled; normal art/export avoids the extra upload.
         if (params.substrateView>0 && substrateEcology) {
-          substrateEcology.encodeRGBA(substrateTexData);
+          if(params.substrateView===9 && successionEcology)
+            successionEcology.encodeRGBA(substrateTexData);
+          else substrateEcology.encodeRGBA(substrateTexData);
           gl.activeTexture(gl.TEXTURE3);
           gl.bindTexture(gl.TEXTURE_2D, substrateTex);
           gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,GRID_SIZE,GRID_SIZE,0,
@@ -3572,8 +3645,9 @@
         gl.uniform1f(uniforms.uTime, nowMs * 0.001);
         gl.uniform1f(uniforms.uWetness, params.effectiveWetness);
         gl.uniform1i(uniforms.uSubstrateView,
-          params.substrateView>4 ? (rockWeathering ? params.substrateView : 0)
-          : (substrateEcology ? params.substrateView : 0));
+          params.substrateView===9 ? (successionEcology ? 9 : 0)
+          : (params.substrateView>4 ? (rockWeathering ? params.substrateView : 0)
+          : (substrateEcology ? params.substrateView : 0)));
         gl.uniform1f(uniforms.uWeatheringRelief,
           rockWeathering&&!params.weatheringBefore ? params.weatheringRelief : 0);
         gl.uniform1f(uniforms.uWeatheringPigment,
@@ -3610,6 +3684,14 @@
               const m=substrateEcology.statistics();
               status.textContent=`Mean water ${Math.round(m.meanWater*100)}% · crevice ${Math.round(m.meanCrevice*100)}% · mineral ${Math.round(m.meanMineral*100)}% · exposure ${Math.round(m.meanExposure*100)}%`;
             } else status.textContent='Original rock model in use — substrate enhancement unavailable.';
+          }
+          const successionStatus=document.getElementById('successionStatus');
+          if(successionStatus){
+            if(successionEcology){
+              const st=successionEcology.statistics();
+              successionStatus.textContent=
+                `${st.successorNiches.toLocaleString()} empty successor niches · ${Math.round(st.occupancy*100)}% occupied · ${st.contestedMargins} contested edges`;
+            } else successionStatus.textContent='Original ecological model only.';
           }
           const geologicalStatus=document.getElementById('weatheringStats');
           if (geologicalStatus && rockWeathering){
