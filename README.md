@@ -49,6 +49,24 @@ Controls: **Developmental Unfolding** 0–100% (0 uses original shape staging), 
 
 This is **dynamic heightfield/parallax morphogenesis**, not generated overhanging polygonal meshes. It preserves the renderer's WebGL2/iPhone architecture while improving the physically apparent motion. It intentionally uses simulated tissue age, biomass, fruiting and lagged hydration rather than decorative periodic sine animations, and the exact same shader runs for on-screen preview, GIF and MP4.
 
+## Phase 11: ecological succession — the rock remembers, generations compete
+
+**`succession-ecology.js`** is a bounded, deterministic ecological-guild model that builds on the merged Codex material realism, 3D anatomy, substrate moisture and Phase 10 chemical scars. There are no new simulation arrays or hidden clocks, so **Material Study → Return to artwork** can still restore exactly the original fields and params.
+
+- **Fresh mineral rock:** crustose and squamulose pioneer forms receive stronger settlement and early-front growth preference.
+- **Weathered lichen graveyards:** etched pockets, oxide blooms and persistent organic/memory fields increasingly favor foliose, fruticose and gelatinous successor colonies. The water and nutrient fields also affect niche ranking.
+- **Generational recruitment:** mature colony spores choose among five distinct ecological guild weights with the existing deterministic biological RNG, favoring the selected drawing species but still allowing different phenotypes. Habitat suitability affects settlement probability.
+- **Front encounters:** newly unoccupied pixels can choose among neighboring colonies based on both surviving biomass and site suitability. Established tissue never abruptly changes its species/colony identity; physical mesh anatomy remains stable, and the previous slow suture growth/stress model remains underneath.
+- **Edge competition:** neighboring colonies with different habitat fitness change their local growth pressure, without hard resetting a living colony or instantly swapping ownership.
+- **Source of truth:** the model reads **original `rockField`, `waterField`, `nutrientField` and Phase 10 `rockWeathering.fields`** live. Scar resets and wet/dry cycles immediately change ecological potential. No second fake ecological texture or random process.
+- **Reversibility:** Succession Influence **0** exactly disables the added recruitment/growth/competition multipliers and selects spores using the original random-species rule. The feature can be disabled at any point without destroying earlier work.
+- **Controls:** in the **Substrate** tab, adjust Ecological Succession, Fresh-Rock Pioneer Advantage, Old-Rock Successor Advantage and Competing Colony Boundaries, all 0–2×. Presets: **Fresh Slate** and **Ancient Graveyard**.
+- **Niche map:** **Inspect Living Terrain → Succession potential** overlays the diagnostic successor-favorability map in violet/gold over the original art; it uses the existing terrain RGBA8 texture on texture unit 3 and uploads the map only when selected. The old diagnostic maps remain unchanged.
+- **Mobile budget:** analytical read-only per-cell factors, no new GL framebuffer, geometry, timer or GPU sampler; hot-loop affinity avoids repeated site allocation.
+- **Regression:** `tests/succession-ecology.test.cjs` exercises guild preference, deterministic selection on fresh/old rock, asymmetric border pressure, exact zero-mode fallback, dynamic rock history, RGBA8 diagnostic mapping and Codex specimen UI integration.
+
+These are artistic ecological rules, not quantified life-history or geochemical estimates for named lichen species. GitHub Pages publishing remains independently blocked until the site is enabled in repository settings; this phase does not change Pages permissions. Physical iPhone Safari and full GIF/MP4 encoding remain unverified.
+
 ## Phase 10: biogenic rock weathering and enduring geological memory
 
 **`rock-weathering.js`** models slow *biologically inspired* mineral erosion and persistent chemical staining on the original 256×256 slate, independent of living biomass. A separate, persistent geological record allows one generation of lichen to change where the next generation can grow.
