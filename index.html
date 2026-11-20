@@ -996,6 +996,7 @@
   <script src="./rhizine-network.js"></script>
   <script src="./substrate-ecology.js"></script>
   <script src="./rock-weathering.js"></script>
+  <script src="./succession-ecology.js"></script>
   <script src="./shared-material.js"></script>
   <script src="./tissue-hydration.js"></script>
   <script src="./foliose-anatomy.js"></script>
@@ -1030,6 +1031,7 @@
       const rockField = new Float32Array(NUM_CELLS);    // static slate cleavage, cracks & iron veins
       let substrateEcology = null;                     // optional coupled rock microclimate engine
       let rockWeathering = null;                        // long-lived etched substrate memory
+      let successionEcology = null;                     // stateless guild competition & recruitment
 
       // Track each colony's spore attachment origin (umbilicus/prothallus center) for true radial lobe morphogenesis
       const colonyOriginX = new Float32Array(256);
@@ -1090,6 +1092,10 @@
         basalFusion: 0.90,       // living thallus shell grows around the branch holdfast
         basalSpread: 1.0,       // radius of attachment skirt in rock/canvas coordinates
         basalVolume: 1.0,       // cortex thickness and physical substrate contact
+        successionInfluence: 1.0, // pioneer-to-successor turnover; zero = exact legacy ecology
+        successionPioneers: 1.0,  // fresh-rock pioneer advantage
+        successionHeirs: 1.15,    // inheritance of old fungal geological scars
+        successionCompetition: 1.0, // pressure at competing colony margins
         substrateInfluence: 1.0, // ecological terrain sensitivity, 0 preserves legacy multiplier
         substrateRetention: 1.1, // depressions hold water between rain events
         substrateExposure: 0.75,// drying on open ridges
@@ -1352,6 +1358,10 @@
             let bestSp = sp;
             let bestCol = col;
             let diffColonyContact = 0.0;
+            let rivalSpecies=sp, strongestRival=0;
+            const rankedSuccession=successionEcology &&
+              params.successionInfluence>0 && col===0;
+            let bestClaim=-Infinity;
 
             const neighbors = [iN, iS, iW, iE, iNW, iNE, iSW, iSE];
             const weights = [1.0, 1.0, 1.0, 1.0, 0.707, 0.707, 0.707, 0.707];
@@ -1363,11 +1373,23 @@
               avgNb += nbB * weights[k];
               if (nbB > maxNb) {
                 maxNb = nbB;
-                bestSp = speciesField[nbIdx];
-                bestCol = colonyIdField[nbIdx];
+                if(!rankedSuccession) {
+                  bestSp = speciesField[nbIdx];
+                  bestCol = colonyIdField[nbIdx];
+                }
+              }
+              // Only genuinely bare substrate can choose among competing
+              // neighboring guilds. Living tissue keeps its old anatomy ID.
+              if(rankedSuccession && nbB>0.008 && colonyIdField[nbIdx]>0) {
+                const claim=nbB*successionEcology.recruitment(i,speciesField[nbIdx]);
+                if(claim>bestClaim){
+                  bestClaim=claim;
+                  bestSp=speciesField[nbIdx];bestCol=colonyIdField[nbIdx];
+                }
               }
               if (col > 0 && colonyIdField[nbIdx] > 0 && colonyIdField[nbIdx] !== col) {
                 diffColonyContact = 1.0;
+                if(nbB>strongestRival){strongestRival=nbB;rivalSpecies=speciesField[nbIdx];}
               }
             }
             avgNb /= 6.828;
@@ -1403,8 +1425,10 @@
                 const rockAffinity = 0.7 + 0.3 * (1.0 - rockField[i]);
                 const terrainFactor = substrateEcology
                   ? substrateEcology.growthFactor(i, frontSp) : 1.0;
+                const successionFactor=successionEcology
+                  ? successionEcology.growthFactor(i,frontSp) : 1.0;
                 const advanceProb = traits.growthSpeed * hydrationActivity
-                  * newN * lobeFactor * rockAffinity * terrainFactor;
+                  * newN * lobeFactor * rockAffinity * terrainFactor * successionFactor;
 
                 // Smooth continuous advance, NOT a random hard jump from 0 to 0.14.
                 // A colony's polarized, moisture-driven growth front accumulates tiny
@@ -1444,12 +1468,16 @@
 
             // 1. Biomass thickening (slower in interior due to CO2 coffee-drop depletion and colony sutures)
             const perimeterBoost = Math.max(0.15, 1.0 - avgNb * 0.85);
-            const suturePenalty = diffColonyContact > 0.5 ? 0.25 : 1.0;
+            const suturePenalty = diffColonyContact > 0.5
+              ? 0.25*(successionEcology
+                  ? successionEcology.competition(i,sp,rivalSpecies):1)
+              : 1.0;
             const habitatFactor = substrateEcology
               ? substrateEcology.growthFactor(i, sp) : 1.0;
             const growthDelta = traits.growthSpeed * 0.45 * hydrationActivity
               * newN * (0.35 + 0.65 * perimeterBoost)
-              * suturePenalty * (1.0 - nec) * habitatFactor;
+              * suturePenalty * (1.0 - nec) * habitatFactor
+              * (successionEcology ? successionEcology.growthFactor(i,sp) : 1.0);
 
             let newB = Math.min(1.0, b + growthDelta * (1.0 - b * 0.82));
 
@@ -1533,11 +1561,15 @@
           const ry = 8 + Math.floor(biologyRandom() * (GRID_SIZE - 16));
           const rIdx = ry * GRID_SIZE + rx;
           if (biomass[rIdx] < 0.02 && necrosisField[rIdx] < 0.15 && nutrientField[rIdx] > 0.65) {
-            const randomSpecies = biologyRandom() < 0.6 ? activeSpecies : Math.floor(biologyRandom() * 5);
+            const randomSpecies=successionEcology && params.successionInfluence>0
+              ? successionEcology.chooseSpecies(rIdx,biologyRandom(),activeSpecies)
+              : biologyRandom() < 0.6 ? activeSpecies : Math.floor(biologyRandom() * 5);
             // Poorly matched exposure/mineral conditions suppress settlement.
             // With Terrain Influence 0, the original seeding chance is unchanged.
-            const establishment = substrateEcology
+            const terrainEstablishment = substrateEcology
               ? Math.min(1,substrateEcology.growthFactor(rIdx,randomSpecies)) : 1;
+            const establishment = Math.min(1,terrainEstablishment *
+              (successionEcology ? successionEcology.establishment(rIdx,randomSpecies) : 1));
             if (biologyRandom() < establishment)
               inoculateColony(rx / GRID_SIZE, ry / GRID_SIZE, randomSpecies, 2.5, true);
           }
@@ -3383,6 +3415,18 @@
         } catch(error) {
           console.warn('Rock history unavailable; original substrate preserved:',error);
           rockWeathering=null;
+        }
+      }
+      if(window.LichenSuccession){
+        try{
+          successionEcology=window.LichenSuccession.create({
+            gridSize:GRID_SIZE,biomass,ageField,necrosisField,speciesField,
+            colonyIdField,nutrientField,waterField,rockField,
+            weathering:rockWeathering,params
+          });
+        }catch(error){
+          console.warn('Optional succession ecology unavailable:',error);
+          successionEcology=null;
         }
       }
       seedDefaultSlateEcosystem();
